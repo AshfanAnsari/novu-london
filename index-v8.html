@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novu® London — High-Fashion Novus</title>
+<meta name="description" content="Fully 3D fashion characters, ready to redesign digital couture.">
+<script>setTimeout(function(){if(document.body)document.body.classList.remove('pre');},6000);</script>
+<style>
+@font-face{font-family:'Archivo';src:url('fonts/Archivo-Variable.ttf') format('truetype');font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-Variable.ttf') format('truetype');font-weight:100 900;font-display:swap}
+:root{
+  --bg:#e9e6e1; --ink:#0b0b0b; --mute:#77736d; --pill:rgba(255,255,255,.42);
+  --line:rgba(11,11,11,.14); --accent:#ff5a1f;
+  --u:1px; --n:1px; --vw:1440;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg)}
+body{font-family:'Archivo',sans-serif;font-stretch:112%;color:var(--ink);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button{background:none;border:0;font:inherit;color:inherit;cursor:pointer}
+img{display:block}
+::selection{background:var(--accent);color:#fff}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-stopped{overflow:hidden}
+
+/* ---------- global layers ---------- */
+.vignette{position:fixed;inset:0;z-index:59;pointer-events:none;box-shadow:inset 0 0 calc(220 * var(--n)) rgba(60,52,44,.22)}
+.grain{position:fixed;inset:-50%;z-index:60;pointer-events:none;opacity:.07;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1s steps(6) infinite}
+@keyframes grain{
+  0%{transform:translate(0,0)} 20%{transform:translate(-3%,2%)} 40%{transform:translate(2%,-4%)}
+  60%{transform:translate(-4%,-1%)} 80%{transform:translate(3%,3%)} 100%{transform:translate(0,0)}
+}
+
+/* ---------- shared label / pill ---------- */
+.lbl{font-family:'Archivo',sans-serif;font-weight:700;font-stretch:108%;text-transform:uppercase;letter-spacing:-.01em}
+.pill{display:flex;align-items:center;justify-content:space-between;gap:calc(16 * var(--n));
+  height:calc(50 * var(--n));padding:0 calc(9 * var(--n)) 0 calc(24 * var(--n));border-radius:999px;
+  background:var(--pill);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  font-family:'Archivo',sans-serif;font-weight:700;font-stretch:108%;text-transform:uppercase;letter-spacing:-.01em;
+  font-size:calc(13 * var(--n));transition:background .45s cubic-bezier(.2,.8,.2,1)}
+.pill .ic{flex:0 0 auto;width:calc(32 * var(--n));height:calc(32 * var(--n));border-radius:50%;background:var(--ink);
+  display:grid;place-items:center;transition:transform .45s cubic-bezier(.2,.8,.2,1),background .45s cubic-bezier(.2,.8,.2,1)}
+.pill .ic svg{width:calc(13 * var(--n));height:calc(13 * var(--n))}
+.pill:hover{background:rgba(255,255,255,.75)}
+.pill:hover .ic{background:var(--accent);transform:rotate(90deg) scale(1.08)}
+
+/* ---------- top nav ---------- */
+.topnav{position:fixed;top:0;left:0;right:0;height:calc(66 * var(--n));z-index:40;pointer-events:none}
+.topnav>*{pointer-events:auto}
+#playBtn{position:absolute;left:calc(53 * var(--n));top:calc(8 * var(--n));width:calc(178 * var(--n))}
+.centre{position:absolute;left:calc(463 * var(--n));top:calc(22 * var(--n));font-size:calc(14.5 * var(--n));
+  transition:opacity .4s,transform .4s}
+#marketPill{position:absolute;right:calc(127 * var(--n));top:calc(8 * var(--n));width:calc(227 * var(--n))}
+.menubtn{position:absolute;right:calc(55 * var(--n));top:calc(8 * var(--n));width:calc(50 * var(--n));height:calc(50 * var(--n));
+  border-radius:50%;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(3.5 * var(--n));
+  transition:transform .3s,opacity .4s}
+.menubtn span{display:block;width:calc(16 * var(--n));height:2px;background:var(--ink);border-radius:2px;transition:transform .35s,opacity .35s}
+.menubtn:hover{transform:scale(1.08)}
+body.menu-open .menubtn span:nth-child(1){transform:translateY(calc(5.5 * var(--n))) rotate(45deg)}
+body.menu-open .menubtn span:nth-child(2){opacity:0}
+body.menu-open .menubtn span:nth-child(3){transform:translateY(calc(-5.5 * var(--n))) rotate(-45deg)}
+.minilogo{position:absolute;left:calc(53 * var(--n));top:calc(18 * var(--n));font-family:'Outfit',sans-serif;font-weight:600;
+  font-size:calc(30 * var(--n));letter-spacing:-.02em;opacity:0;transform:translateY(-8px);transition:opacity .4s,transform .4s;pointer-events:none}
+.minilogo sup{font-size:.45em}
+body.scrolled .minilogo{opacity:1;transform:none;pointer-events:auto}
+.topnav .navhide{transition:opacity .4s,transform .4s,background .45s cubic-bezier(.2,.8,.2,1)}
+body.scrolled .topnav .navhide{opacity:0;transform:translateY(-10px);pointer-events:none}
+
+/* ---------- menu overlay ---------- */
+.menu{position:fixed;inset:0;z-index:35;background:rgba(233,230,225,.86);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 calc(53 * var(--n));
+  opacity:0;visibility:hidden;transition:opacity .45s,visibility .45s}
+body.menu-open .menu{opacity:1;visibility:visible}
+.menu a{font-weight:900;font-stretch:125%;text-transform:uppercase;font-size:max(40px,calc(88 * var(--n)));
+  line-height:1;letter-spacing:-.03em;padding:.08em 0;opacity:0;transform:translateY(30px);
+  transition:opacity .6s,transform .6s,color .3s}
+.menu a .no{font-size:.18em;font-weight:500;letter-spacing:.2em;margin-right:.6em;vertical-align:.9em}
+.menu a:hover{color:var(--accent)}
+body.menu-open .menu a{opacity:1;transform:none}
+body.menu-open .menu a:nth-child(2){transition-delay:.06s,.06s,0s}
+body.menu-open .menu a:nth-child(3){transition-delay:.12s,.12s,0s}
+
+/* ---------- bottom bar ---------- */
+.bottombar{position:fixed;left:0;right:0;bottom:0;height:calc(100 * var(--n));z-index:40;pointer-events:none;
+  transition:opacity .5s,transform .5s}
+.bottombar>*{pointer-events:auto}
+body.at-end .bottombar{opacity:0;transform:translateY(20px);pointer-events:none}
+#roadmapPill{position:absolute;left:calc(53 * var(--n));bottom:calc(22 * var(--n));width:calc(188 * var(--n))}
+.iconbtn{position:absolute;left:calc(261 * var(--n));bottom:calc(22 * var(--n));width:calc(52 * var(--n));height:calc(52 * var(--n));
+  border-radius:50%;background:var(--pill);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  display:grid;place-items:center;transition:transform .35s}
+.iconbtn svg{width:calc(26 * var(--n));height:calc(26 * var(--n))}
+.iconbtn:hover{transform:rotate(-12deg) scale(1.06)}
+.switch{position:absolute;left:50%;bottom:calc(32 * var(--n));transform:translateX(-50%);display:flex;align-items:center;gap:calc(12 * var(--n))}
+.switch .hint{font-size:calc(10 * var(--n));color:#fff;opacity:.85;font-weight:700;letter-spacing:.14em}
+.novubar{height:calc(32 * var(--n));padding:0 calc(36 * var(--n));background:var(--ink);color:#fff;border-radius:calc(7 * var(--n));
+  font-size:calc(13 * var(--n));font-weight:700;font-stretch:108%;letter-spacing:.06em;
+  box-shadow:0 calc(3 * var(--n)) 0 var(--ink),0 calc(6 * var(--n)) calc(14 * var(--n)) rgba(0,0,0,.18);
+  transition:transform .12s}
+.novubar.hit{transform:translateY(calc(3 * var(--n)))}
+.findex{position:absolute;left:calc(1111 * var(--n));bottom:calc(40 * var(--n));font-size:calc(13.5 * var(--n));
+  font-weight:700;font-stretch:108%;letter-spacing:.02em;display:flex;align-items:center;gap:calc(5 * var(--n))}
+.findex .arr{display:inline-block;transition:transform .45s}
+.findex::after{content:"";position:absolute;left:0;bottom:calc(-5 * var(--n));height:1.5px;width:100%;background:var(--ink);
+  transform:scaleX(0);transform-origin:left;transition:transform .45s}
+.findex:hover::after{transform:scaleX(1)}
+.findex:hover .arr{transform:translate(2px,-2px)}
+.dots{display:flex;gap:calc(4 * var(--n))}
+.dots i{width:calc(3.5 * var(--n));height:calc(3.5 * var(--n));border-radius:50%;background:var(--ink);animation:blink 1.8s infinite}
+.dots i:nth-child(2){animation-delay:.12s}.dots i:nth-child(3){animation-delay:.24s}
+.dots i:nth-child(4){animation-delay:.36s}.dots i:nth-child(5){animation-delay:.48s}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.bottombar .dots{position:absolute;right:calc(58 * var(--n));bottom:calc(43 * var(--n))}
+</style>
+</head>
+<body class="pre">
+<script>setTimeout(function(){document.body.classList.remove('pre');},6000);</script>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<header class="topnav">
+  <button class="pill navhide anim" id="playBtn"><span>Play Trailer</span><span class="ic"><svg viewBox="0 0 10 10" fill="#fff"><path d="M2.5 1.2 L9 5 L2.5 8.8 z"/></svg></span></button>
+  <div class="centre lbl navhide anim">High-Fashion Novus</div>
+  <a class="pill navhide anim" id="marketPill" href="#partners"><span>View Marketplace</span><span class="ic"><svg viewBox="0 0 10 10" fill="#fff"><rect x="2.4" y="1.8" width="1.6" height="6.4" rx=".8"/><rect x="6" y="1.8" width="1.6" height="6.4" rx=".8"/></svg></span></a>
+  <button class="menubtn anim" id="menuBtn" aria-label="Open menu"><span></span><span></span><span></span></button>
+  <a class="minilogo" href="#top">Novu<sup>®</sup></a>
+</header>
+
+<nav class="menu" id="menu">
+  <a href="#top"><span class="no">01</span>The Drop</a>
+  <a href="#walk"><span class="no">02</span>The Walk</a>
+  <a href="#partners"><span class="no">03</span>Partners</a>
+</nav>
+
+<div class="bottombar">
+  <a class="pill anim" id="roadmapPill" href="#walk"><span>Our Roadmap</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="6.5" r="2.6"/><circle cx="16" cy="17.5" r="2.6"/><path d="M8 9.1 C8 13.5 16 10.5 16 14.9"/></svg></span></a>
+  <button class="iconbtn anim" id="randomBtn" aria-label="Random Novu"><svg viewBox="0 0 28 28"><path fill="#0b0b0b" d="M14 2.6 20.4 5.8 24.4 2.8 23.2 12.4c-.8 6.4-4.4 11.4-9.2 12.8C9.2 23.8 5.6 18.8 4.8 12.4L3.6 2.8 7.6 5.8Z"/><rect x="8.6" y="12.6" width="10.8" height="3.4" rx="1.4" fill="#ff5a1f"/><circle cx="14" cy="21.4" r="1.3" fill="#e9e6e1"/></svg></button>
+  <div class="switch anim"><span class="hint">PRESS</span><button class="novubar" id="novubar">NOVUBAR</button><span class="hint">TO SWITCH</span></div>
+  <a class="findex anim" href="#partners">FASHION INDEX <span class="arr"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 9.5 9.5 3M4.5 3h5v5"/></svg></span></a>
+  <div class="dots anim"><i></i><i></i><i></i><i></i><i></i></div>
+</div>
+
+<style>
+/* ---------- stage / scene ---------- */
+.stage{position:relative}
+.scene{position:sticky;top:0;height:100svh;margin-bottom:-100svh;overflow:hidden;z-index:0;pointer-events:none;opacity:0;transition:opacity .9s}
+body.scene-on .scene{opacity:1}
+body.stills .scene{display:none}
+.scene canvas{width:100%;height:100%;display:block}
+.hero,.story{position:relative;z-index:1}
+.hero{height:100svh;min-height:520px;overflow:hidden}
+.frame{position:relative;width:100%}
+.hero .frame{height:max(calc(900 * var(--u)),100%)}
+
+/* ---------- wordmark ---------- */
+.wordmark{position:absolute;inset:0;font-weight:650;line-height:1;will-change:transform}
+.wm-part{position:absolute;top:calc(72.3 * var(--u));font-size:calc(177 * var(--u));white-space:nowrap}
+.wm-part span{display:inline-block}
+.wm-nov{left:calc(53 * var(--u));font-stretch:107%}
+.wm-lon{left:calc(650 * var(--u));font-stretch:100%}
+.wm-reg{position:absolute;left:calc(533 * var(--u));top:calc(103 * var(--u));width:calc(70 * var(--u));height:calc(70 * var(--u))}
+
+/* ---------- hero copy / tag ---------- */
+.copy{position:absolute;top:calc(298 * var(--u));font-weight:600;font-stretch:104%;font-size:calc(16.5 * var(--u));
+  line-height:1.22;text-transform:uppercase;letter-spacing:-.005em}
+.copy .line{display:block;overflow:hidden}
+.copy .line>span{display:block}
+.copy b{font-weight:850}
+.copy1{left:calc(53 * var(--u))}
+.copy2{left:calc(339 * var(--u))}
+.tag{position:absolute;left:calc(1022 * var(--u));top:calc(596 * var(--u));display:flex;align-items:center;gap:calc(12 * var(--u));
+  font-size:calc(13.5 * var(--u))}
+.tag svg{width:calc(46 * var(--u));height:calc(8 * var(--u));overflow:visible}
+.tag .draw{stroke-dasharray:46;stroke-dashoffset:46;animation:tagdraw 2.4s cubic-bezier(.6,0,.2,1) 1.6s infinite}
+@keyframes tagdraw{0%{stroke-dashoffset:46}45%{stroke-dashoffset:0}70%{stroke-dashoffset:0}100%{stroke-dashoffset:-46}}
+.hero-still{display:none}
+body.stills .hero-still{display:block;position:absolute;right:calc(40 * var(--u));bottom:0;height:96%;max-width:56%;
+  object-fit:contain;object-position:bottom right;z-index:-1}
+
+/* ---------- story ---------- */
+.story{height:300svh}
+.stick{position:sticky;top:0;height:100svh;overflow:hidden}
+.story .frame{height:100%}
+.panel{position:absolute;left:calc(140 * var(--u));top:calc(262 * var(--u));width:calc(600 * var(--u));opacity:0;will-change:opacity}
+body.video-bg .panel.p1{left:calc(860 * var(--u))}
+.panel{transition:left .6s}
+.plabel{font-size:calc(11 * var(--u));letter-spacing:.35em;color:var(--mute);font-weight:500;font-stretch:125%}
+.phead{margin-top:calc(30 * var(--u));font-weight:900;font-stretch:125%;font-size:calc(40 * var(--u));
+  line-height:.92;letter-spacing:-.025em;text-transform:uppercase}
+.pline{display:block;overflow:hidden;padding-bottom:.04em}
+.pline>span{display:block;will-change:transform}
+.ptext{margin-top:calc(22 * var(--u));font-size:calc(15.5 * var(--u));line-height:1.36;color:#55514b;
+  font-stretch:108%;font-weight:450;max-width:calc(330 * var(--u))}
+.ptext em{font-style:normal;color:var(--accent)}
+.dashes{position:absolute;left:calc(140 * var(--u));top:calc(560 * var(--u));display:flex;gap:calc(8 * var(--u));
+  transition:left .6s;opacity:0}
+body.video-bg .dashes{left:calc(860 * var(--u))}
+.dash{width:calc(46 * var(--u));height:2px;background:var(--line);display:block}
+.dash i{display:block;height:100%;background:var(--ink);transform:scaleX(0);transform-origin:left}
+.story-still{display:none}
+body.stills .story-still{display:block;position:absolute;right:calc(120 * var(--u));top:50%;transform:translateY(-50%);
+  height:70%;max-width:38%;object-fit:contain;z-index:-1}
+
+/* ---------- partners ---------- */
+.partners{position:relative;padding-top:calc(56 * var(--n));
+  background:linear-gradient(#e9e6e1,#f1efec 60%,#f4f3f1)}
+.p-head{padding-left:calc(50 * var(--n))}
+.p-label{font-size:calc(11 * var(--n));letter-spacing:.35em;color:var(--mute);font-weight:500;font-stretch:125%}
+.p-title{margin-top:calc(14 * var(--n));font-weight:900;font-stretch:125%;font-size:calc(42 * var(--n));
+  line-height:.9;letter-spacing:-.025em;text-transform:uppercase}
+.p-title span{display:block}
+.track{display:flex;gap:calc(20 * var(--n));padding:calc(28 * var(--n)) calc(50 * var(--n)) 0;
+  overflow-x:auto;scrollbar-width:none;cursor:grab}
+.track::-webkit-scrollbar{display:none}
+.track.dragging{cursor:grabbing}
+.card{position:relative;flex:0 0 auto;width:calc(253 * var(--n));aspect-ratio:1.179;overflow:hidden;background:#cfcbc5}
+.card .art{position:absolute;inset:0;background-image:url('assets/partners.jpg');background-size:500% 100%;
+  filter:grayscale(.85) contrast(1.02);transition:filter 1s,transform 1s;pointer-events:none}
+.card:hover .art{filter:grayscale(0) contrast(1);transform:scale(1.06)}
+.card .caption{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;
+  padding:calc(30 * var(--n)) calc(13 * var(--n)) calc(11 * var(--n));color:#fff;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));
+  font-size:calc(11 * var(--n));transform:translateY(102%);transition:transform .5s;pointer-events:none}
+.card:hover .caption{transform:none}
+.caption .cname{font-weight:700;font-stretch:108%;text-transform:uppercase;letter-spacing:-.01em}
+.caption .ctype{font-weight:500;letter-spacing:.2em;opacity:.8}
+.p-progress{margin:calc(52 * var(--n)) calc(50 * var(--n)) 0;height:2px;background:var(--line)}
+.p-fill{height:100%;background:var(--ink);width:0%}
+
+/* ---------- footer / legal ---------- */
+.footer{display:grid;grid-template-columns:1fr auto auto auto;column-gap:calc(52 * var(--n));
+  padding:calc(76 * var(--n)) calc(50 * var(--n)) calc(30 * var(--n))}
+.q{font-weight:900;font-stretch:125%;font-size:calc(21 * var(--n));line-height:1;text-transform:uppercase}
+.qsub{font-size:calc(12.5 * var(--n));color:var(--mute);font-weight:450;font-stretch:108%;margin-top:calc(18 * var(--n))}
+.f-connect{margin-right:calc(70 * var(--n))}
+.f-links{display:flex;flex-direction:column;gap:calc(7 * var(--n))}
+.f-links a{font-size:calc(13.5 * var(--n));color:#4f4b45;font-stretch:108%;display:flex;align-items:center;gap:calc(4 * var(--n))}
+.f-links a .arr{display:inline-block;color:inherit;transition:transform .3s,color .3s}
+.f-links a:hover{color:var(--ink)}
+.f-links a:hover .arr{transform:translate(2px,-2px);color:var(--accent)}
+.legal{border-top:1px solid var(--line);margin:0 calc(50 * var(--n));padding:calc(36 * var(--n)) 0 calc(56 * var(--n));
+  display:flex;align-items:center;gap:calc(34 * var(--n));font-size:calc(10 * var(--n));letter-spacing:.38em;
+  font-weight:600;font-stretch:125%;text-transform:uppercase;white-space:nowrap}
+.legal .l-copy{color:var(--mute)}
+.legal .l-styled b{color:var(--ink);font-weight:600}
+.legal .l-spacer{flex:1}
+.legal a{transition:color .3s}
+.legal a:hover{color:var(--accent)}
+
+/* ---------- pre (opening) state ---------- */
+body.pre .wm-part span,body.pre .wm-reg,body.pre .copy .line>span,body.pre .tag,
+body.pre .hero-still,body.pre .topnav .anim,body.pre .bottombar .anim{opacity:0}
+
+/* ---------- phone (<=820px, 390 design) ---------- */
+@media (max-width:820px){
+  .topnav{height:auto}
+  .topnav .centre,#marketPill,.minilogo{display:none}
+  #playBtn{left:16px;top:14px;width:auto;height:42px;padding:0 6px 0 16px;font-size:11px;gap:10px}
+  #playBtn .ic{width:30px;height:30px}
+  #playBtn .ic svg{width:11px;height:11px}
+  .menubtn{right:16px;top:14px;width:42px;height:42px}
+  .menubtn span{width:15px}
+  body.scrolled .topnav{background:linear-gradient(rgba(233,230,225,.92),rgba(233,230,225,0))}
+  .bottombar{height:auto}
+  .bottombar #roadmapPill,.bottombar .iconbtn,.bottombar .findex,.bottombar .dots{display:none}
+  .switch{bottom:20px}
+  .switch .hint{display:none}
+  .novubar{height:38px;font-size:12px;padding:0 30px;border-radius:8px}
+  .menu a{font-size:52px}
+  /* hero stacks */
+  .hero{height:auto;min-height:0;overflow:visible}
+  .hero .frame{height:auto;padding-top:calc(84 * var(--u));display:flex;flex-direction:column}
+  .wordmark{position:static;will-change:auto}
+  .wm-part{position:static;font-size:calc(76 * var(--u));line-height:.9}
+  .wm-nov{display:inline}
+  .wm-lon{display:block;margin-top:calc(2 * var(--u))}
+  .wm-reg{display:inline-block;position:static;width:calc(27 * var(--u));height:calc(27 * var(--u));vertical-align:baseline;margin-left:.06em}
+  .copy{position:static;font-size:calc(14 * var(--u));margin-top:calc(26 * var(--u))}
+  .copy2{margin-top:calc(14 * var(--u))}
+  body.stills .hero-still,body .hero-still{display:block;position:relative;right:auto;bottom:auto;order:5;
+    width:100%;height:calc(470 * var(--u));max-width:none;object-fit:contain;object-position:57% 40%;z-index:auto;margin-top:calc(20 * var(--u));
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 26%);mask-image:linear-gradient(to bottom,transparent 0,#000 26%)}
+  .tag{position:absolute;right:calc(16 * var(--u));left:auto;top:auto;bottom:calc(14 * var(--u));font-size:calc(12 * var(--u))}
+  /* story stacks */
+  .story{height:auto}
+  .stick{position:static;height:auto;overflow:visible}
+  .story .frame{height:auto;padding:calc(64 * var(--u)) calc(20 * var(--u)) 0}
+  .panel{position:static;opacity:1;width:auto;margin-bottom:calc(48 * var(--u))}
+  body.video-bg .panel.p1{left:auto}
+  .phead{font-size:calc(33 * var(--u))}
+  .ptext{font-size:calc(14.5 * var(--u));max-width:none}
+  .dashes{display:none}
+  body.stills .story-still,body .story-still{display:block;position:static;transform:none;width:100%;
+    height:calc(520 * var(--u));max-width:none;object-fit:contain;object-position:72% 50%;margin-bottom:calc(10 * var(--u))}
+  /* partners */
+  .track{gap:12px;padding-left:20px;padding-right:20px}
+  .card{width:240px}
+  .card .art{filter:grayscale(.3) contrast(1.02)}
+  .card .caption{transform:none}
+  .p-head{padding-left:20px}
+  .p-progress{margin-left:20px;margin-right:20px}
+  /* footer */
+  .footer{grid-template-columns:1fr 1fr;padding-left:20px;padding-right:20px}
+  .f-quote,.f-connect{grid-column:1 / -1}
+  .f-connect{margin:calc(26 * var(--n)) 0 calc(6 * var(--n))}
+  .f-connect br{display:none}
+  .q{font-size:calc(24 * var(--n))}
+  .legal{flex-wrap:wrap;white-space:normal;margin:0 20px;padding-bottom:110px;row-gap:14px}
+}
+
+@media (max-width:820px){
+  /* v7: phones run the scene engine too — hide the stills while it lives */
+  body.video-bg .hero-still,body.video-bg .story-still{display:none}
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .grain{display:none}
+}
+</style>
+
+<main>
+  <div class="stage" id="top">
+    <div class="scene" aria-hidden="true"><canvas id="sceneCanvas"></canvas></div>
+
+    <section class="hero">
+      <div class="frame">
+        <h1 class="wordmark" id="wordmark" aria-label="Novu London">
+          <span class="wm-part wm-nov" id="wmNov"><span>N</span><span>o</span><span>v</span><span>u</span></span><svg class="wm-reg" viewBox="0 0 70 70" aria-hidden="true"><circle cx="35" cy="35" r="31" fill="none" stroke="currentColor" stroke-width="7"/><path fill="currentColor" d="M26 52V18h12.6c6.4 0 10.4 4.1 10.4 9.6 0 4.3-2.4 7.6-6.1 9L50.5 52h-7.5L35.9 38.4H32V52h-6zm6-19.4h6.1c2.9 0 4.7-2 4.7-4.9s-1.8-4.5-4.7-4.5H32v9.4z"/></svg><span class="wm-part wm-lon" id="wmLon"><span>L</span><span>O</span><span>N</span><span>D</span><span>O</span><span>N</span></span>
+        </h1>
+        <div class="copy copy1">
+          <span class="line"><span><b>Built in 3D,</b> ready</span></span>
+          <span class="line"><span>to redesign digital</span></span>
+          <span class="line"><span>couture</span></span>
+        </div>
+        <div class="copy copy2">
+          <span class="line"><span>Meet all</span></span>
+          <span class="line"><span><b>7777 styled</b></span></span>
+          <span class="line"><span>big-eared Novus</span></span>
+        </div>
+        <div class="tag lbl"><span>NVU0023.</span><svg viewBox="0 0 46 8" fill="none" stroke="#0b0b0b" stroke-width="1.3"><path class="draw" d="M1 4 H45"/><path d="M39 1 45 4 39 7"/></svg></div>
+        <img class="hero-still" id="heroStill" alt="A fennec fox character in orange shield sunglasses, a silver chain and a white varsity jacket">
+      </div>
+    </section>
+
+    <section class="story" id="walk">
+      <div class="stick">
+        <div class="frame">
+          <article class="panel p1" id="panel1">
+            <div class="plabel">01 /</div>
+            <h2 class="phead"><span class="pline"><span>Streetwear, but</span></span><span class="pline"><span>made yours</span></span></h2>
+            <p class="ptext">Swap your <em>NOVU's</em> style with limited digital drops, climb the Fashion Index and shape a look that lives in every world.</p>
+          </article>
+          <article class="panel p2" id="panel2">
+            <div class="plabel">02 /</div>
+            <h2 class="phead"><span class="pline"><span>Run the</span></span><span class="pline"><span>Novuwalk</span></span></h2>
+            <p class="ptext">Hit the catwalk and flaunt your whole wardrobe. Become a <em>NOVUFLUENCER</em> and collect the real-world perks.</p>
+          </article>
+          <div class="dashes" id="dashes"><span class="dash"><i id="dashFill1"></i></span><span class="dash"><i id="dashFill2"></i></span></div>
+          <img class="story-still" id="storyStill" alt="The Novu fox walking, full body">
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="partners" id="partners">
+    <div class="p-head">
+      <div class="p-label">03 /</div>
+      <h2 class="p-title"><span>Our</span><span>Partners</span></h2>
+    </div>
+    <div class="track" id="track"></div>
+    <div class="p-progress"><div class="p-fill" id="pFill"></div></div>
+    <footer class="footer">
+      <div class="f-quote">
+        <div class="q">We sew, we style,<br>we walk. We win.</div>
+        <div class="qsub">Novu Studio Manifest</div>
+      </div>
+      <div class="f-connect q">Connect<br>with<br>us</div>
+      <nav class="f-links">
+        <a href="#partners">Our channel <span class="arr">↗</span></a>
+        <a href="#partners">View the Market <span class="arr">↗</span></a>
+        <a href="#partners">Rarity Ranker <span class="arr">↗</span></a>
+        <a href="#partners">NOVU Fashion Index <span class="arr">↗</span></a>
+      </nav>
+      <nav class="f-links">
+        <a href="#partners">The Atelier Journal <span class="arr">↗</span></a>
+        <a href="#partners">Drops <span class="arr">↗</span></a>
+        <a href="#partners">Kiln Studio <span class="arr">↗</span></a>
+      </nav>
+    </footer>
+    <div class="legal">
+      <span class="l-copy">© 2026 • Novu Labs</span>
+      <span class="l-styled">Styled by <b>@NovuStudioLDN</b></span>
+      <span class="l-spacer"></span>
+      <a href="#partners">Terms &amp; Conditions</a>
+      <a href="#partners">Privacy Policy</a>
+      <span class="dots"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+  </section>
+</main>
+
+<script src="vendor/mp4box.all.min.js"></script>
+<script src="vendor/lenis.min.js"></script>
+
+<script>
+(function(){
+'use strict';
+var $ = function(s){ return document.querySelector(s); };
+var clamp = function(v,a,b){ return v<a?a:(v>b?b:v); };
+var body = document.body;
+var stage = $('#top'), story = $('#walk'), partnersEl = $('#partners');
+var wm = $('#wordmark'), wmNov = $('#wmNov'), wmLon = $('#wmLon'), wmReg = document.querySelector('.wm-reg');
+var panel1 = $('#panel1'), panel2 = $('#panel2'), dashes = $('#dashes');
+var dashFill1 = $('#dashFill1'), dashFill2 = $('#dashFill2');
+var heroStill = $('#heroStill'), storyStill = $('#storyStill');
+var track = $('#track'), pFill = $('#pFill');
+var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function isPhone(){ return window.matchMedia('(max-width: 820px)').matches; }
+
+/* ---------- units (§4) ---------- */
+function setUnits(){
+  var w = document.documentElement.clientWidth, root = document.documentElement, u, n;
+  root.style.setProperty('--vw', w);
+  if (w <= 820){ u = n = window.innerWidth / 390; }
+  else { u = w / 1440; n = Math.min(w / 1440, window.innerHeight / 760); }
+  root.style.setProperty('--u', u + 'px');
+  root.style.setProperty('--n', n + 'px');
+}
+
+/* ---------- wordmark fitting (§7a) ---------- */
+function fitPart(el, target){
+  el.style.letterSpacing = '0px';
+  var n = el.querySelectorAll('span').length;
+  var natural = el.scrollWidth;
+  el.style.letterSpacing = ((target - natural) / (n - 1)) + 'px';
+}
+function fitWordmark(){
+  if (isPhone()){ wmNov.style.letterSpacing = ''; wmLon.style.letterSpacing = ''; return; }
+  var u = document.documentElement.clientWidth / 1440;
+  fitPart(wmNov, 464 * u);
+  fitPart(wmLon, 737 * u);
+}
+
+/* ---------- Lenis (§8) ---------- */
+var lenis = null;
+if (!reduced && window.Lenis){
+  lenis = new Lenis({ lerp: .085, smoothWheel: true, wheelMultiplier: 1, anchors: true });
+}
+function goTo(y){
+  if (lenis) lenis.scrollTo(y, { duration: 1.6 });
+  else window.scrollTo({ top: y, behavior: 'smooth' });
+}
+
+/* ---------- NOVUBAR stops (§6) ---------- */
+function stops(){
+  var vh = window.innerHeight, y = window.scrollY;
+  var sr = story.getBoundingClientRect(), pr = partnersEl.getBoundingClientRect();
+  return [0, sr.top + y + .02 * vh, sr.top + y + 1.35 * vh, pr.top + y];
+}
+function nextStop(){
+  var y = window.scrollY, ss = stops(), i;
+  for (i = 0; i < ss.length; i++){ if (ss[i] > y + 4) return ss[i]; }
+  return 0;
+}
+var novubar = $('#novubar');
+function advance(){
+  novubar.classList.add('hit');
+  setTimeout(function(){ novubar.classList.remove('hit'); }, 140);
+  goTo(nextStop());
+}
+novubar.addEventListener('click', advance);
+document.addEventListener('keydown', function(e){
+  if (e.code !== 'Space') return;
+  var a = document.activeElement;
+  if (a && (a.closest('input,button,a,textarea,select,[contenteditable]'))) return;
+  e.preventDefault(); advance();
+});
+$('#playBtn').addEventListener('click', function(){ goTo(stops()[1]); });
+
+/* ---------- menu (§5) ---------- */
+var menuBtn = $('#menuBtn');
+menuBtn.addEventListener('click', function(){ body.classList.toggle('menu-open'); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') body.classList.remove('menu-open'); });
+document.querySelectorAll('.menu a').forEach(function(a){
+  a.addEventListener('click', function(){ body.classList.remove('menu-open'); });
+});
+
+/* ---------- partners track (§9, adapted sheet) ---------- */
+var PARTNERS = [
+  ['Hops', '01 · Leather', 0], ['Bandit', '02 · Bomber', 25], ['Professor', '03 · Tailoring', 50],
+  ['Pinky', '04 · Puffer', 75], ['Miso', '05 · Knitwear', 100]
+];
+(function buildCards(){
+  var html = '', r, i, p;
+  for (r = 0; r < 2; r++) for (i = 0; i < PARTNERS.length; i++){
+    p = PARTNERS[i];
+    html += '<article class="card"><div class="art" style="background-position:' + p[2] + '% 0%"></div>' +
+      '<div class="caption"><span class="cname">' + p[0] + '</span><span class="ctype">' + p[1] + '</span></div></article>';
+  }
+  track.innerHTML = html;
+})();
+var interacted = false, dragging = false, dragX = 0, dragScroll = 0;
+function stopDrift(){ interacted = true; }
+track.addEventListener('pointerdown', function(e){
+  stopDrift(); dragging = true; dragX = e.clientX; dragScroll = track.scrollLeft;
+  track.setPointerCapture(e.pointerId); track.classList.add('dragging');
+});
+track.addEventListener('pointermove', function(e){
+  if (dragging) track.scrollLeft = dragScroll - (e.clientX - dragX);
+});
+function endDrag(){ dragging = false; track.classList.remove('dragging'); }
+track.addEventListener('pointerup', endDrag);
+track.addEventListener('pointercancel', endDrag);
+track.addEventListener('wheel', stopDrift, { passive: true });
+track.addEventListener('touchstart', stopDrift, { passive: true });
+function updateProgress(){
+  var sw = track.scrollWidth, cw = track.clientWidth;
+  if (sw <= cw){ pFill.style.width = '100%'; return; }
+  var vis = cw / sw, frac = track.scrollLeft / (sw - cw);
+  pFill.style.width = ((vis + (1 - vis) * frac) * 100) + '%';
+}
+track.addEventListener('scroll', updateProgress, { passive: true });
+function drift(dt){
+  if (reduced || interacted || dragging) return;
+  var cards = track.children;
+  if (cards.length < 6) return;
+  var setW = cards[5].offsetLeft - cards[0].offsetLeft;
+  if (setW <= 0) return;
+  track.scrollLeft += .03 * dt;
+  if (track.scrollLeft >= setW) track.scrollLeft -= setW;
+}
+
+/* ---------- easing: cubic-bezier(.16,1,.3,1) ---------- */
+function cubicBezier(x1, y1, x2, y2){
+  return function(x){
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    var t = x, i, cx, dx;
+    for (i = 0; i < 5; i++){
+      cx = 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t;
+      dx = 3 * (1 - t) * (1 - t) * x1 + 6 * (1 - t) * t * (x2 - x1) + 3 * t * t * (1 - x2);
+      if (dx === 0) break;
+      t -= (cx - x) / dx;
+    }
+    return 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t;
+  };
+}
+var easeOut = cubicBezier(.16, 1, .3, 1);
+function easeInOutCubic(t){ return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+/* ---------- story panels (§8 timing) ---------- */
+window.__stillsMode = false;
+var lastPanelKey = '';
+function setPanel(el, a, which, instant){
+  var e = easeOut(a), i;
+  el.style.opacity = a;
+  var lines = el.querySelectorAll('.pline > span');
+  for (i = 0; i < lines.length; i++)
+    lines[i].style.transform = instant ? '' : 'translateY(' + ((1 - e) * (105 + i * 20)) + '%)';
+  el.querySelector('.ptext').style.transform = instant ? '' : 'translateY(' + ((1 - e) * 24) + 'px)';
+  el.querySelector('.plabel').style.transform = instant ? '' : 'translateX(' + ((which === 1 ? 1 : -1) * (1 - e) * 16) + 'px)';
+}
+function updatePanels(p){
+  var key = (window.__stillsMode ? 's' : 'v') + p.toFixed(3);
+  if (key === lastPanelKey) return;
+  lastPanelKey = key;
+  var a1, a2;
+  if (window.__stillsMode){
+    a1 = p < .5 ? 1 : 0; a2 = p < .5 ? 0 : 1;
+    setPanel(panel1, a1, 1, true);
+    setPanel(panel2, a2, 2, true);
+    dashFill1.style.transform = 'scaleX(' + clamp(p * 2, 0, 1) + ')';
+    dashFill2.style.transform = 'scaleX(' + clamp((p - .5) * 2, 0, 1) + ')';
+    dashes.style.opacity = 1;
+  } else {
+    a1 = clamp((p - .20) / .06, 0, 1) * (1 - clamp((p - .43) / .06, 0, 1));
+    a2 = clamp((p - .64) / .08, 0, 1);
+    setPanel(panel1, a1, 1, false);
+    setPanel(panel2, a2, 2, false);
+    dashFill1.style.transform = 'scaleX(' + clamp((p - .20) / .35, 0, 1) + ')';
+    dashFill2.style.transform = 'scaleX(' + clamp((p - .55) / .45, 0, 1) + ')';
+    dashes.style.opacity = Math.max(a1, a2);
+  }
+}
+function clearPanelInline(){
+  [panel1, panel2].forEach(function(el){
+    el.style.cssText = '';
+    el.querySelectorAll('.pline > span').forEach(function(s){ s.style.cssText = ''; });
+    el.querySelector('.ptext').style.cssText = '';
+    el.querySelector('.plabel').style.cssText = '';
+  });
+  dashes.style.cssText = '';
+  lastPanelKey = '';
+}
+
+/* ---------- per-frame scroll effects ---------- */
+var stageP = 0;
+function updateScrollFX(){
+  var y = window.scrollY, vh = window.innerHeight;
+  body.classList.toggle('scrolled', y > .35 * vh);
+  body.classList.toggle('at-end', partnersEl.getBoundingClientRect().top < .55 * vh);
+  var sr = stage.getBoundingClientRect();
+  stageP = clamp(-sr.top / (stage.offsetHeight - vh), 0, 1);
+  if (!isPhone()){
+    var u = document.documentElement.clientWidth / 1440;
+    wm.style.transform = 'translateY(' + (-0.4 * Math.min(1, y / vh) * 177 * u) + 'px)';
+    var tr = story.getBoundingClientRect();
+    updatePanels(clamp(-tr.top / (story.offsetHeight - vh), 0, 1));
+  }
+}
+
+/* ---------- opening animation (§10) ---------- */
+function runOpening(){
+  body.classList.remove('pre');
+  if (reduced){ body.classList.add('ready'); return; }
+  var E = 'cubic-bezier(.16,1,.3,1)', anims = [];
+  function push(el, kf, dur, delay){
+    if (!el) return;
+    try { anims.push(el.animate(kf, { duration: dur, delay: delay, easing: E, fill: 'backwards' })); } catch (err) {}
+  }
+  if (window.getComputedStyle(heroStill).display !== 'none')
+    push(heroStill, [{ opacity: 0, transform: 'scale(1.08)', filter: 'blur(10px)' }, { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }], 1800, 0);
+  var wmItems = Array.prototype.slice.call(wmNov.querySelectorAll('span')).concat([wmReg], Array.prototype.slice.call(wmLon.querySelectorAll('span')));
+  wmItems.forEach(function(el, i){
+    push(el, [{ opacity: 0, transform: 'translateY(60%) rotate(4deg)' }, { opacity: 1, transform: 'translateY(0) rotate(0deg)' }], 1100, 250 + i * 55);
+  });
+  document.querySelectorAll('.copy .line > span').forEach(function(el, i){
+    push(el, [{ opacity: 0, transform: 'translateY(100%)' }, { opacity: 1, transform: 'translateY(0)' }], 900, 850 + i * 70);
+  });
+  push($('.tag'), [{ opacity: 0, transform: 'translateX(-20px)' }, { opacity: 1, transform: 'translateX(0)' }], 900, 1300);
+  document.querySelectorAll('.topnav .anim').forEach(function(el, i){
+    push(el, [{ opacity: 0, transform: 'translateY(-24px)' }, { opacity: 1, transform: 'translateY(0)' }], 900, 500 + i * 80);
+  });
+  document.querySelectorAll('.bottombar .anim').forEach(function(el, i){
+    var x = el.classList.contains('switch') ? ' translateX(-50%)' : '';
+    push(el, [{ opacity: 0, transform: 'translateY(24px)' + x }, { opacity: 1, transform: 'translateY(0)' + x }], 900, 700 + i * 80);
+  });
+  function finish(){
+    anims.forEach(function(a){ try { a.cancel(); } catch (e) {} });
+    body.classList.add('ready');
+  }
+  Promise.allSettled(anims.map(function(a){ return a.finished; })).then(finish);
+  setTimeout(finish, 4000);
+}
+
+/* shared state for the scene engine (part 2) */
+window.__novu = {
+  clamp: clamp, easeInOutCubic: easeInOutCubic, isPhone: isPhone, reduced: reduced,
+  lenis: lenis, getStageP: function(){ return stageP; },
+  onResize: []
+};
+window.addEventListener('resize', function(){
+  setUnits(); fitWordmark();
+  if (isPhone()) clearPanelInline();
+  window.__novu.onResize.forEach(function(f){ f(); });
+});
+setUnits();
+
+window.__novu.startLoop = function(renderScene, driftFn){
+  var lastT = performance.now();
+  function loop(t){
+    var dt = Math.min(100, t - lastT); lastT = t;
+    if (lenis) lenis.raf(t);
+    updateScrollFX();
+    if (renderScene) renderScene(dt);
+    driftFn(dt);
+    updateProgress();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+};
+window.__novu.drift = drift;
+window.__novu.runOpening = runOpening;
+window.__novu.fitWordmark = fitWordmark;
+})();
+</script>
+
+<script>
+(function(){
+'use strict';
+/* =====================================================================
+   NOVU v8 SCENE ENGINE — second from-scratch rebuild (v7 is retired).
+
+   Why v7 still lagged on a real device (diagnosed from its code):
+   1. Its decoder was configured hardwareAcceleration:'prefer-software'
+      — on a phone that forces CPU H.264 decode of 720p, competing
+      with the conversion workers and the main thread for the same
+      cores. (Invisible on the SwiftShader QA VM, which has no
+      hardware decode either way.)
+   2. Single-tier frame supply: every frame existed only as a
+      full-res 1280x720 JPEG. Any frame the playhead reached that was
+      not already in the 72-entry bitmap LRU cost a MAIN-THREAD 720p
+      JPEG decode (createImageBitmap) in the middle of the scroll —
+      a hard flick outruns that LRU constantly, so the main thread
+      spent the scroll decoding instead of drawing.
+   3. Conversion priority was distance-to-target only: during a
+      flick the pool kept converting frames the playhead had already
+      passed.
+   4. The draw cache key contained bitmaps.size, so every LRU
+      insertion during decode invalidated the key and forced a full
+      repaint of the identical frame.
+   5. The crossfade drew two full-res frames every rAF even at flick
+      speed.
+
+   This engine:
+   1. Stage is CSS position:sticky (styles above) — no JS pinning.
+   2. mp4box demux + WebCodecs decode, split into segments at the
+      video's keyframes (scene.mp4: frames 0 and 250), one decoder
+      per segment. Decoder config is resolved through
+      VideoDecoder.isConfigSupported: prefer-hardware first, then
+      no preference, then prefer-software (the v7 config, kept only
+      as the last resort).
+   3. TWO-TIER conversion in a worker pool (frame-worker-v8.js).
+      Each decoded frame produces, in one job:
+        PROXY — 480x270 JPEG (posted FIRST, the moment it exists).
+          ~1/7 the pixels of the hi tier; the main thread can decode
+          it in ~1-3 ms. This is the MOTION tier: whatever the scroll
+          speed, a near-exact proxy is always drawable.
+        HI — 1280x720 JPEG + edge colours (posted second). This is
+          the SETTLE tier: materialised on the main thread only when
+          the playhead is slow or stopped, never in the middle of a
+          flick.
+      Jobs are pulled by distance to a VELOCITY-PREDICTED centre
+      (target + velocity x 0.35 s), so conversion effort runs ahead
+      of the playhead instead of behind it. Every in-flight frame is
+      cloned before transfer: if a worker dies or stalls past the
+      watchdog, the clone is converted on the main thread and the
+      pool heals itself. Two worker deaths switch conversion to the
+      main thread permanently (the v6 lesson).
+   4. One rAF loop (in part 1) reads scroll progress -> target frame;
+      the displayed frame CHASES it with distance-boosted easing
+      (v7 constants, proven). Draw rule:
+        exact hi bitmap (crossfade to the next hi frame only when
+        slow/still) -> nearest ready PROXY bitmap -> nearest ready
+        hi bitmap -> hold the last painted frame.
+      A flat background is never painted instead of a frame. While
+      moving fast the draw is a single image (no crossfade).
+   5. Blobs for all 480 frames of both tiers stay resident
+      (measured in QA; the scene's soft gradients compress well).
+      Proxy bitmaps live in an LRU around the playhead/predicted
+      path (96 desktop / 64 phone); hi bitmaps in a small LRU around
+      the playhead (28 / 18), filled only under the settle rule.
+   Phones run this same engine; reduced-motion or total pipeline
+   failure falls back to the stills (as v6/v7).
+   ===================================================================== */
+var N = window.__novu;
+var clamp = N.clamp, easeInOutCubic = N.easeInOutCubic;
+var SCENE_URL = 'assets/scene.mp4';
+var WORKER_URL = 'frame-worker-v8.js';
+var PROXY_W = 480, PROXY_H = 270;
+var body = document.body;
+var canvas = document.getElementById('sceneCanvas');
+var ctx = canvas.getContext('2d');
+var heroStill = document.getElementById('heroStill');
+var storyStill = document.getElementById('storyStill');
+
+var sceneActive = false;
+var proxyBlobs = {}, hiBlobs = {}, edges = {};
+var haveFrame = {};
+var proxyMissing = {}, hiMissing = {};
+var proxyCount = 0, hiCount = 0, frameCount = 0;
+var proxyMissingCount = 0;
+var proxyBytes = 0, hiBytes = 0;
+var lostCount = 0;
+var totalFrames = 0;
+var videoW = 0, videoH = 0;
+var cur = 0, targetFrame = 0;
+var vel = 0, lastTarget = 0, lastTargetT = 0;   /* playhead velocity, frames/sec (EMA) */
+var priorityCentre = 0;                          /* where conversion effort points */
+var stillMs = 0;                                 /* settle hysteresis for the hi tier */
+var decodeMs = -1, decodeDoneFlag = false, proxiesDoneFlag = false;
+var convMode = 'worker';                         /* 'worker' | 'main' */
+var workerDeaths = 0;
+var lastTier = 'none';
+var lastKey = '';
+
+/* debug hook */
+window.__scene = {
+  framesCached: function(){ return frameCount; },
+  proxies: function(){ return proxyCount; },
+  his: function(){ return hiCount; },
+  target: function(){ return targetFrame; },
+  cur: function(){ return cur; },
+  vel: function(){ return vel; },
+  tier: function(){ return lastTier; },
+  bitmaps: function(){ return proxyBmp.size + hiBmp.size; },
+  proxyBitmaps: function(){ return proxyBmp.size; },
+  hiBitmaps: function(){ return hiBmp.size; },
+  bytes: function(){ return { proxy: proxyBytes, hi: hiBytes }; },
+  decodeDone: function(){ return decodeDoneFlag; },
+  proxiesDone: function(){ return proxiesDoneFlag; },
+  mode: function(){ return convMode; },
+  workerDeaths: function(){ return workerDeaths; },
+  lost: function(){ return lostCount; }
+};
+
+/* ---------- stills fallback ---------- */
+function enterStills(){
+  if (window.__stillsMode) return;
+  window.__stillsMode = true;
+  sceneActive = false;
+  body.classList.remove('video-bg');
+  body.classList.add('stills');
+  if (!heroStill.getAttribute('src')) heroStill.src = 'assets/fox-hero.webp';
+  if (!storyStill.getAttribute('src')) storyStill.src = 'assets/fox-walk-side.webp';
+}
+
+/* ---------- canvas sizing ---------- */
+function sizeCanvas(){
+  var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  /* the source is 1280 wide: a backing store past ~1760px only burns
+     raster time (measured in v6/v7 QA: 2160x1350 software repaint
+     starved rAF; a real GPU does not care, but it costs nothing) */
+  if (canvas.clientWidth && canvas.clientWidth * dpr > 1760) dpr = 1760 / canvas.clientWidth;
+  var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (w && h && (canvas.width !== w || canvas.height !== h)){ canvas.width = w; canvas.height = h; lastKey = ''; }
+}
+N.onResize.push(function(){ if (sceneActive) sizeCanvas(); });
+
+/* ---------- bitmap LRUs (one per tier) ---------- */
+var PROXY_CAP = N.isPhone() ? 64 : 96;
+var HI_CAP = N.isPhone() ? 18 : 28;
+var proxyBmp = new Map(), hiBmp = new Map();
+var pxInflight = {}, pxInflightCount = 0;
+var hiInflight = {}, hiInflightCount = 0;
+function lruGet(map, i){
+  if (!map.has(i)) return null;
+  var b = map.get(i); map.delete(i); map.set(i, b); return b;
+}
+function protectSet(){
+  var p = {};
+  var a = Math.floor(cur), t = Math.round(targetFrame);
+  p[a] = 1; if (a + 1 < totalFrames) p[a + 1] = 1; p[t] = 1;
+  return p;
+}
+function lruSet(map, cap, i, b){
+  if (map.has(i)){ var old = map.get(i); if (old && old.close) old.close(); map.delete(i); }
+  map.set(i, b);
+  if (map.size <= cap) return;
+  var protect = protectSet();
+  while (map.size > cap){
+    var done = false;
+    for (var k of map.keys()){
+      if (!protect[k]){
+        var o = map.get(k); map.delete(k); if (o && o.close) o.close(); done = true; break;
+      }
+    }
+    if (!done) break;
+  }
+}
+/* exact bitmap, else the nearest ready one (unbounded outward search —
+   a capped search plus a narrow materialise window once froze the v6
+   canvas for 16 s; the picture must always reach the closest frame
+   that exists) */
+function pickFrom(map, i){
+  var b = lruGet(map, i);
+  if (b) return { bmp: b, idx: i };
+  var maxD = totalFrames || 480;
+  for (var d = 1; d <= maxD; d++){
+    b = lruGet(map, i - d); if (b) return { bmp: b, idx: i - d };
+    b = lruGet(map, i + d); if (b) return { bmp: b, idx: i + d };
+  }
+  return null;
+}
+function nearestEdge(i){
+  if (edges[i]) return edges[i];
+  for (var d = 1; d <= 60; d++){
+    if (edges[i - d]) return edges[i - d];
+    if (edges[i + d]) return edges[i + d];
+  }
+  return { l: [233, 230, 225], r: [233, 230, 225] };
+}
+/* materialise proxy bitmaps along the playhead<->predicted-target
+   path, nearest first. Proxy decodes are ~1-3 ms, so this can run
+   at any scroll speed — it is what the v7 engine could not afford
+   with full-res frames. */
+function materialiseProxy(){
+  if (!totalFrames) return;
+  var pred = clamp(priorityCentre, 0, totalFrames - 1);
+  var lo = Math.max(0, Math.floor(Math.min(cur, pred)) - 14);
+  var hi = Math.min(totalFrames - 1, Math.ceil(Math.max(cur, pred)) + 14);
+  var cand = [];
+  for (var i = lo; i <= hi; i++)
+    if (proxyBlobs[i] && !proxyBmp.has(i) && !pxInflight[i]) cand.push(i);
+  cand.sort(function(a, b){ return Math.abs(a - cur) - Math.abs(b - cur); });
+  for (var j = 0; j < cand.length && pxInflightCount < 8; j++){
+    (function(idx){
+      pxInflight[idx] = true; pxInflightCount++;
+      createImageBitmap(proxyBlobs[idx]).then(function(b){
+        delete pxInflight[idx]; pxInflightCount--;
+        lruSet(proxyBmp, PROXY_CAP, idx, b);
+      }).catch(function(){ delete pxInflight[idx]; pxInflightCount--; });
+    })(cand[j]);
+  }
+}
+/* materialise hi bitmaps around the playhead — called ONLY when the
+   playhead is slow or settled (see renderScene): a 720p JPEG decode
+   must never land in the middle of a flick. */
+function materialiseHi(){
+  if (!totalFrames) return;
+  var c = Math.round(cur), cand = [];
+  for (var i = Math.max(0, c - 6); i <= Math.min(totalFrames - 1, c + 6); i++)
+    if (hiBlobs[i] && !hiBmp.has(i) && !hiInflight[i]) cand.push(i);
+  cand.sort(function(a, b){ return Math.abs(a - cur) - Math.abs(b - cur); });
+  for (var j = 0; j < cand.length && hiInflightCount < 4; j++){
+    (function(idx){
+      hiInflight[idx] = true; hiInflightCount++;
+      createImageBitmap(hiBlobs[idx]).then(function(b){
+        delete hiInflight[idx]; hiInflightCount--;
+        lruSet(hiBmp, HI_CAP, idx, b);
+      }).catch(function(){ delete hiInflight[idx]; hiInflightCount--; });
+    })(cand[j]);
+  }
+}
+
+/* ---------- rendering ---------- */
+function rects(){
+  var W = canvas.width, H = canvas.height;
+  var bw = W, bh = Math.max(W * 900 / 1440, H);
+  var s0 = Math.max(bw / videoW, bh / videoH);
+  var r0 = { x: (W - videoW * s0) / 2, y: (bh - videoH * s0) / 2, w: videoW * s0, h: videoH * s0 };
+  var s1 = H / videoH;
+  var r1 = { x: (W - videoW * s1) / 2, y: 0, w: videoW * s1, h: H };
+  return [r0, r1];
+}
+function drawScene(){
+  if (!frameCount || !totalFrames || !videoW) return;
+  var i0 = Math.floor(cur), frac = cur - i0;
+  var slow = Math.abs(targetFrame - cur) < 2.0 && Math.abs(vel) < 6;
+  /* look up BEFORE painting: no bitmap anywhere -> paint nothing,
+     the canvas keeps the last good frame (never a flat wash). */
+  var p0 = null, tier = 'none', p1 = null;
+  var hb = lruGet(hiBmp, i0);
+  if (hb){ p0 = { bmp: hb, idx: i0 }; tier = 'hi'; }
+  if (!p0){ p0 = pickFrom(proxyBmp, i0); if (p0) tier = 'proxy'; }
+  if (!p0){ p0 = pickFrom(hiBmp, i0); if (p0) tier = 'hi'; }
+  if (!p0) return;
+  if (tier === 'hi' && frac > .001 && (slow || stillMs > 100)){
+    var hb2 = lruGet(hiBmp, i0 + 1);
+    if (hb2) p1 = { bmp: hb2, idx: i0 + 1 };
+  }
+  var t = easeInOutCubic(clamp((cur / Math.max(1, totalFrames - 1) - .35) / .55, 0, 1));
+  /* NOTE: the key deliberately excludes bitmap-cache sizes — in v7
+     bitmaps.size in the key forced a full repaint of the identical
+     frame on every LRU insertion during decode. */
+  var key = tier + '|' + p0.idx + '|' + (p1 ? p1.idx : -1) + '|' + (p1 ? frac.toFixed(2) : '0') +
+            '|' + t.toFixed(3) + '|' + canvas.width + 'x' + canvas.height;
+  if (key === lastKey) return;
+  lastKey = key;
+  lastTier = tier;
+  var W = canvas.width, H = canvas.height;
+  var e = nearestEdge(p0.idx);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgb(' + e.l[0] + ',' + e.l[1] + ',' + e.l[2] + ')';
+  ctx.fillRect(0, 0, W / 2, H);
+  ctx.fillStyle = 'rgb(' + e.r[0] + ',' + e.r[1] + ',' + e.r[2] + ')';
+  ctx.fillRect(W / 2, 0, W - W / 2, H);
+  var rr = rects(), r0 = rr[0], r1 = rr[1];
+  var r = {
+    x: r0.x + (r1.x - r0.x) * t, y: r0.y + (r1.y - r0.y) * t,
+    w: r0.w + (r1.w - r0.w) * t, h: r0.h + (r1.h - r0.h) * t
+  };
+  ctx.drawImage(p0.bmp, r.x, r.y, r.w, r.h);
+  if (p1){ ctx.globalAlpha = frac; ctx.drawImage(p1.bmp, r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; }
+  var fw = r.w * .06;
+  var gl = ctx.createLinearGradient(r.x, 0, r.x + fw, 0);
+  gl.addColorStop(0, 'rgba(' + e.l[0] + ',' + e.l[1] + ',' + e.l[2] + ',.85)');
+  gl.addColorStop(1, 'rgba(' + e.l[0] + ',' + e.l[1] + ',' + e.l[2] + ',0)');
+  ctx.fillStyle = gl; ctx.fillRect(r.x, r.y, fw, r.h);
+  var gr = ctx.createLinearGradient(r.x + r.w, 0, r.x + r.w - fw, 0);
+  gr.addColorStop(0, 'rgba(' + e.r[0] + ',' + e.r[1] + ',' + e.r[2] + ',.85)');
+  gr.addColorStop(1, 'rgba(' + e.r[0] + ',' + e.r[1] + ',' + e.r[2] + ',0)');
+  ctx.fillStyle = gr; ctx.fillRect(r.x + r.w - fw, r.y, fw, r.h);
+}
+function renderScene(dt){
+  if (!sceneActive || !totalFrames) return;
+  var now = performance.now();
+  targetFrame = Math.min(1, N.getStageP() / .85) * (totalFrames - 1);
+  /* velocity (frames/sec, EMA) from target movement; an instant jump
+     spikes it for a few ticks, which is exactly when the conversion
+     centre must teleport to the destination */
+  if (lastTargetT){
+    var instV = (targetFrame - lastTarget) / Math.max(1, now - lastTargetT) * 1000;
+    vel = vel * .8 + instV * .2;
+  }
+  lastTarget = targetFrame; lastTargetT = now;
+  priorityCentre = clamp(targetFrame + vel * .35, 0, totalFrames - 1);
+  var diff = targetFrame - cur;
+  var kBase = N.lenis ? .6 : .25;
+  var k = kBase + Math.min(.3, Math.abs(diff) / 500);   /* fast catch-up on big jumps */
+  cur += diff * (1 - Math.pow(1 - k, dt / 16.7));
+  if (Math.abs(targetFrame - cur) < .02) cur = targetFrame;
+  /* settle hysteresis: the hi tier engages only once the playhead
+     has been nearly still for a beat */
+  if (Math.abs(targetFrame - cur) < .75 && Math.abs(vel) < 2) stillMs += dt; else stillMs = 0;
+  materialiseProxy();
+  if (stillMs > 100 || (Math.abs(targetFrame - cur) < 2.0 && Math.abs(vel) < 6)) materialiseHi();
+  drawScene();
+}
+var revealed = false;
+function onFirstFrame(){
+  sizeCanvas();
+  var tries = 0;
+  (function attempt(){
+    drawScene();
+    if (lastKey || ++tries > 30){
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ body.classList.add('scene-on'); }); });
+    } else requestAnimationFrame(attempt);
+  })();
+}
+function markFrame(index){
+  if (!haveFrame[index]){ haveFrame[index] = true; frameCount++; }
+}
+function storeProxy(index, blob, l, r){
+  if (proxyBlobs[index] !== undefined || proxyMissing[index]) return;
+  if (!blob){ proxyMissing[index] = true; proxyMissingCount++; }
+  else {
+    proxyBlobs[index] = blob; proxyBytes += blob.size || 0;
+    edges[index] = { l: l, r: r }; proxyCount++;
+    markFrame(index);
+  }
+  if (totalFrames && proxyCount + proxyMissingCount >= totalFrames) proxiesDoneFlag = true;
+  if (!revealed && frameCount){ revealed = true; onFirstFrame(); }
+}
+function storeHi(index, blob){
+  if (hiBlobs[index] !== undefined || hiMissing[index]) return;
+  if (!blob){ hiMissing[index] = true; return; }
+  hiBlobs[index] = blob; hiBytes += blob.size || 0; hiCount++;
+  markFrame(index);
+  if (!revealed && frameCount){ revealed = true; onFirstFrame(); }
+}
+
+/* ---------- conversion: worker pool with main-thread rescue ---------- */
+var convQueue = [];               /* {index, frame} decoded, awaiting conversion */
+var workers = [];                 /* {w, busy, job:{index, keep, sentAt, noClone, proxyOk}} */
+var mainActive = 0;
+var settledConv = 0;              /* conversions finished (both tiers settled or lost) */
+
+function pickConvJob(){
+  var best = -1, bestD = Infinity;
+  for (var i = 0; i < convQueue.length; i++){
+    var d = Math.abs(convQueue[i].index - priorityCentre);
+    if (d < bestD){ bestD = d; best = i; }
+  }
+  if (best < 0) return null;
+  return convQueue.splice(best, 1)[0];
+}
+function convSettled(){ settledConv++; }
+
+/* main-thread conversion (the rescue lane; same two tiers as the worker) */
+var mHi = null, mHiCx = null, mPx = null, mPxCx = null;
+function edgeColoursFrom2D(c, w, h){
+  function avg(data){ var r = 0, g = 0, b = 0, n = data.length / 4, i;
+    for (i = 0; i < data.length; i += 4){ r += data[i]; g += data[i + 1]; b += data[i + 2]; }
+    return [Math.round(r / n), Math.round(g / n), Math.round(b / n)]; }
+  var L = c.getImageData(0, 0, 4, h).data, R = c.getImageData(w - 4, 0, 4, h).data;
+  return [avg(L), avg(R)];
+}
+function convertOnMain(frame){
+  var w = frame.displayWidth, h = frame.displayHeight, eg;
+  var FAIL = { proxy: null, hi: null, l: [233, 230, 225], r: [233, 230, 225] };
+  try {
+    if (!mHi){ mHi = new OffscreenCanvas(w, h); mHiCx = mHi.getContext('2d', { willReadFrequently: true }); }
+    if (mHi.width !== w || mHi.height !== h){ mHi.width = w; mHi.height = h; }
+    mHiCx.drawImage(frame, 0, 0);
+    if (!mPx){ mPx = new OffscreenCanvas(PROXY_W, PROXY_H); mPxCx = mPx.getContext('2d'); }
+    mPxCx.drawImage(mHi, 0, 0, PROXY_W, PROXY_H);
+    frame.close();
+    eg = edgeColoursFrom2D(mHiCx, w, h);
+  } catch (e){
+    try { frame.close(); } catch (_){}
+    return Promise.resolve(FAIL);
+  }
+  var pxP = mPx.convertToBlob({ type: 'image/jpeg', quality: .78 }).catch(function(){ return null; });
+  var hiP = mHi.convertToBlob({ type: 'image/jpeg', quality: .85 }).catch(function(){ return null; });
+  return Promise.all([pxP, hiP]).then(function(r){
+    return { proxy: r[0], hi: r[1], l: eg[0], r: eg[1] };
+  }).catch(function(){ return { proxy: null, hi: null, l: eg[0], r: eg[1] }; });
+}
+function settleFromMain(job, res){
+  storeProxy(job.index, res && res.proxy, res ? res.l : [233, 230, 225], res ? res.r : [233, 230, 225]);
+  storeHi(job.index, res && res.hi);
+  convSettled();
+}
+function rescueOnMain(job){
+  mainActive++;
+  convertOnMain(job.keep).then(function(res){
+    mainActive--;
+    settleFromMain(job, res);
+    pumpConv();
+  });
+}
+function pumpMainConv(){
+  while (mainActive < 2 && convQueue.length){
+    var job = pickConvJob();
+    if (!job) return;
+    mainActive++;
+    (function(job){
+      convertOnMain(job.frame).then(function(res){
+        mainActive--;
+        settleFromMain(job, res);
+        pumpConv();
+      });
+    })(job);
+  }
+}
+function spawnWorker(){
+  var wkr;
+  try { wkr = new Worker(WORKER_URL); } catch (e){ return null; }
+  var rec = { w: wkr, busy: false, job: null };
+  wkr.onmessage = function(ev){
+    var msg = ev.data || {};
+    var job = rec.job;
+    if (!job || msg.index !== job.index) return;
+    if (msg.kind === 'proxy'){
+      job.proxyOk = !!msg.blob;
+      storeProxy(job.index, msg.blob, msg.l, msg.r);
+      return;
+    }
+    /* kind 'hi' completes the job */
+    rec.busy = false; rec.job = null;
+    var hiOk = !!msg.blob;
+    storeHi(job.index, msg.blob);
+    try { job.keep.close(); } catch (_){}
+    if (!job.proxyOk && !job.noClone){
+      /* the motion tier is the one tier that must not go missing:
+         rescue the clone on the main thread */
+      rescueOnMain(job);
+    } else {
+      if (!job.proxyOk && !hiOk) lostCount++;
+      convSettled();
+    }
+    pumpConv();
+  };
+  wkr.onerror = function(){ killWorker(rec, true); };
+  workers.push(rec);
+  return rec;
+}
+function killWorker(rec, countDeath){
+  if (countDeath) workerDeaths++;
+  try { rec.w.terminate(); } catch (_){}
+  var ix = workers.indexOf(rec); if (ix >= 0) workers.splice(ix, 1);
+  var job = rec.job; rec.job = null; rec.busy = false;
+  if (workerDeaths >= 2 && convMode === 'worker'){
+    convMode = 'main';
+    if (window.console) console.warn('scene: worker pool unreliable, converting on main thread');
+    workers.slice().forEach(function(r){ killWorker(r, false); });
+  } else if (convMode === 'worker'){
+    spawnWorker();
+  }
+  if (job){
+    if (!job.noClone && job.keep){
+      rescueOnMain(job);
+    } else {
+      storeHi(job.index, null);
+      if (!job.proxyOk) lostCount++;
+      convSettled();
+    }
+  }
+  pumpConv();
+}
+function pumpConv(){
+  if (convMode === 'main'){ pumpMainConv(); return; }
+  for (var i = 0; i < workers.length; i++){
+    var rec = workers[i];
+    if (rec.busy || !convQueue.length) continue;
+    var job = pickConvJob();
+    if (!job) return;
+    var keep = null;
+    try { keep = job.frame.clone(); } catch (e){ keep = null; }
+    rec.busy = true;
+    if (!keep){
+      /* cannot clone: send without a rescue copy (frame loss is covered by nearest-frame draw) */
+      rec.job = { index: job.index, keep: job.frame, sentAt: performance.now(), noClone: true, proxyOk: false };
+      try { rec.w.postMessage({ index: job.index, frame: job.frame }, [job.frame]); }
+      catch (e){ rec.busy = false; rec.job = null; lostCount++; convSettled(); }
+      continue;
+    }
+    rec.job = { index: job.index, keep: keep, sentAt: performance.now(), proxyOk: false };
+    try { rec.w.postMessage({ index: job.index, frame: job.frame }, [job.frame]); }
+    catch (e){
+      rec.busy = false; var j2 = rec.job; rec.job = null;
+      rescueOnMain(j2);
+    }
+  }
+}
+/* worker watchdog: a busy worker silent for 8s is dead — rescue its frame */
+setInterval(function(){
+  if (convMode !== 'worker') return;
+  var now = performance.now();
+  workers.slice().forEach(function(rec){
+    if (rec.busy && rec.job && now - rec.job.sentAt > 8000) killWorker(rec, true);
+  });
+}, 1000);
+
+/* ---------- decoder config: hardware first (v7 forced software) ---------- */
+function resolveDecoderCfg(base){
+  if (!('VideoDecoder' in window) || !VideoDecoder.isConfigSupported) return Promise.resolve(base);
+  var prefs = ['prefer-hardware', null, 'prefer-software'];
+  var chain = Promise.resolve(null);
+  prefs.forEach(function(p){
+    chain = chain.then(function(found){
+      if (found) return found;
+      var cfg = { codec: base.codec, codedWidth: base.codedWidth, codedHeight: base.codedHeight };
+      if (base.description) cfg.description = base.description;
+      if (p) cfg.hardwareAcceleration = p;
+      return VideoDecoder.isConfigSupported(cfg)
+        .then(function(r){ return (r && r.supported) ? cfg : null; })
+        .catch(function(){ return null; });
+    });
+  });
+  return chain.then(function(found){ return found || base; });
+}
+
+/* ---------- decode pipeline: keyframe segments, one decoder each ---------- */
+function runPipeline(){
+  return new Promise(function(resolve, reject){
+    var settled = false;
+    function fail(e){ if (!settled){ settled = true; reject(e); } }
+    function done(){ if (!settled){ settled = true; resolve(); } }
+    var t0 = performance.now();
+
+    /* worker pool up front (probe = first real job, watchdog covers failure) */
+    var NW = 0;
+    try { NW = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1)); } catch (e){ NW = 1; }
+    for (var wi = 0; wi < NW; wi++) if (!spawnWorker()) break;
+    if (!workers.length) convMode = 'main';
+
+    var samples = [];               /* {chunk, sync} in order */
+    var samplesReceived = 0, extractionDone = false;
+    var segments = [];
+    var decoderCfg = null, cfgReady = false, segmentsStarted = false;
+
+    function maybeDone(){
+      if (extractionDone && totalFrames && settledConv >= totalFrames){ decodeMs = performance.now() - t0; decodeDoneFlag = true; done(); }
+    }
+    var lastProgress = performance.now(), lastStoredSeen = 0;
+    var settleTimer = setInterval(function(){
+      if (settled){ clearInterval(settleTimer); return; }
+      maybeDone();
+      if (frameCount === 0 && performance.now() - t0 > 15000){ clearInterval(settleTimer); fail(new Error('decode watchdog')); }
+      else if (frameCount > 0 && extractionDone && performance.now() - lastProgress > 25000){ clearInterval(settleTimer); decodeMs = performance.now() - t0; decodeDoneFlag = true; done(); }
+    }, 1000);
+    setInterval(function(){
+      if (frameCount !== lastStoredSeen){ lastStoredSeen = frameCount; lastProgress = performance.now(); }
+    }, 500);
+
+    function maybeStartSegments(){
+      if (segmentsStarted || !extractionDone || !cfgReady) return;
+      segmentsStarted = true;
+      startSegments();
+    }
+    function startSegments(){
+      var starts = [];
+      for (var i = 0; i < samples.length; i++) if (samples[i].sync) starts.push(i);
+      if (!starts.length || starts[0] !== 0) starts.unshift(0);
+      for (var s = 0; s < starts.length; s++){
+        var from = starts[s], to = (s + 1 < starts.length) ? starts[s + 1] : samples.length;
+        segments.push({ from: from, to: to, feedIdx: from, pending: 0, flushed: false, decoder: null });
+      }
+      segments.forEach(function(seg, si){
+        /* segment 0 starts now; later segments start once frame 0 exists,
+           so the hero reveal is never starved by parallel software decode */
+        if (si === 0 || revealed) startSegment(seg);
+        else {
+          var iv = setInterval(function(){
+            if (revealed || settled){ clearInterval(iv); if (!settled) startSegment(seg); }
+          }, 120);
+        }
+      });
+    }
+    function startSegment(seg){
+      if (seg.decoder || settled) return;
+      var decoder;
+      try {
+        decoder = new VideoDecoder({
+          output: function(frame){
+            seg.pending++;
+            convQueue.push({ index: seg.from + seg.outCount++, frame: frame });
+            pumpConv();
+            pumpSegment(seg);
+          },
+          error: function(e){ fail(e); }
+        });
+      } catch (e){ fail(e); return; }
+      seg.outCount = 0;
+      seg.decoder = decoder;
+      try { decoder.configure(decoderCfg); } catch (e){ fail(e); return; }
+      decoder.addEventListener('dequeue', function(){ pumpSegment(seg); });
+      pumpSegment(seg);
+    }
+    function pumpSegment(seg){
+      if (!seg.decoder || settled) return;
+      while (seg.feedIdx < seg.to && seg.decoder.state === 'configured' &&
+             seg.decoder.decodeQueueSize < 4 && seg.pending < 10){
+        try { seg.decoder.decode(samples[seg.feedIdx].chunk); seg.feedIdx++; }
+        catch (e){ fail(e); return; }
+      }
+      if (seg.feedIdx >= seg.to && !seg.flushed && seg.decoder.state === 'configured'){
+        seg.flushed = true;
+        seg.decoder.flush().catch(function(){});
+      }
+    }
+    /* conversion settles feed backpressure: recount each segment's
+       in-flight frames from the queue + pool whenever jobs move */
+    var _pumpConv = pumpConv;
+    pumpConv = function(){
+      _pumpConv();
+      var counts = {};
+      for (var i = 0; i < convQueue.length; i++){
+        for (var s = 0; s < segments.length; s++){
+          if (convQueue[i].index >= segments[s].from && convQueue[i].index < segments[s].to){ counts[s] = (counts[s] || 0) + 1; break; }
+        }
+      }
+      segments.forEach(function(seg, s){
+        var inWorkers = 0;
+        workers.forEach(function(rec){ if (rec.job && rec.job.index >= seg.from && rec.job.index < seg.to) inWorkers++; });
+        seg.pending = (counts[s] || 0) + inWorkers + mainActive /* approx for main lane */;
+        pumpSegment(seg);
+      });
+    };
+
+    var mp4 = MP4Box.createFile();
+    mp4.onError = function(e){ fail(new Error('mp4box: ' + e)); };
+    mp4.onReady = function(info){
+      var vt = info.videoTracks && info.videoTracks[0];
+      if (!vt){ fail(new Error('no video track')); return; }
+      totalFrames = vt.nb_samples;
+      videoW = vt.video.width; videoH = vt.video.height;
+      var base = { codec: vt.codec, codedWidth: videoW, codedHeight: videoH };
+      try {
+        var trak = mp4.getTrackById(vt.id);
+        var entry = trak.mdia.minf.stbl.stsd.entries[0];
+        if (entry.avcC){
+          var ds = new DataStream(undefined, 0, DataStream.BIG_ENDIAN);
+          entry.avcC.write(ds);
+          base.description = new Uint8Array(ds.buffer, 8, ds.buffer.byteLength - 8);
+        }
+      } catch (e){ fail(e); return; }
+      resolveDecoderCfg(base).then(function(cfg){
+        decoderCfg = cfg;
+        cfgReady = true;
+        maybeStartSegments();
+      });
+      mp4.setExtractionOptions(vt.id, null, { nbSamples: 100 });
+      mp4.start();
+    };
+    mp4.onSamples = function(id, user, ss){
+      for (var j = 0; j < ss.length; j++){
+        var smp = ss[j];
+        samples.push({
+          sync: !!smp.is_sync,
+          chunk: new EncodedVideoChunk({
+            type: smp.is_sync ? 'key' : 'delta',
+            timestamp: Math.round(smp.cts * 1e6 / smp.timescale),
+            duration: Math.round(smp.duration * 1e6 / smp.timescale),
+            data: smp.data
+          })
+        });
+      }
+      samplesReceived += ss.length;
+      if (totalFrames && samplesReceived >= totalFrames){ extractionDone = true; maybeStartSegments(); }
+    };
+    fetch(SCENE_URL).then(function(res){
+      if (!res.ok) throw new Error('fetch ' + res.status);
+      var reader = res.body.getReader(), offset = 0;
+      (function read(){
+        reader.read().then(function(r){
+          if (r.done){ try { mp4.flush(); } catch (e) {} return; }
+          var buf = r.value.buffer.slice(r.value.byteOffset, r.value.byteOffset + r.value.byteLength);
+          buf.fileStart = offset; offset += buf.byteLength;
+          mp4.appendBuffer(buf);
+          read();
+        }).catch(function(e){ fail(e); });
+      })();
+    }).catch(function(e){ fail(e); });
+  });
+}
+
+/* ---------- fallback capture (as v6 §8 step 7; both tiers) ---------- */
+function runFallbackCapture(){
+  return new Promise(function(resolve, reject){
+    if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)){ reject(new Error('no rVFC')); return; }
+    var v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = SCENE_URL;
+    v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:-1';
+    document.body.appendChild(v);
+    var c = document.createElement('canvas'), cx2 = c.getContext('2d', { willReadFrequently: true });
+    var pc = document.createElement('canvas'); pc.width = PROXY_W; pc.height = PROXY_H;
+    var pcx = pc.getContext('2d');
+    var finished = false;
+    var timer = setTimeout(function(){
+      if (!finished){ finished = true; v.remove(); frameCount ? resolve() : reject(new Error('capture timeout')); }
+    }, 25000);
+    v.addEventListener('error', function(){
+      if (!finished){ finished = true; clearTimeout(timer); v.remove(); reject(new Error('video error')); }
+    });
+    v.addEventListener('loadedmetadata', function(){
+      c.width = v.videoWidth; c.height = v.videoHeight; videoW = v.videoWidth; videoH = v.videoHeight;
+      v.playbackRate = .5;
+      var p = v.play(); if (p) p.catch(function(){});
+      var cb = function(now, meta){
+        if (finished) return;
+        var idx = Math.round(meta.mediaTime * 24);
+        if (proxyBlobs[idx] === undefined && !proxyMissing[idx]){
+          cx2.drawImage(v, 0, 0);
+          var eg = edgeColoursFrom2D(cx2, c.width, c.height);
+          pcx.drawImage(c, 0, 0, PROXY_W, PROXY_H);
+          totalFrames = Math.max(totalFrames, idx + 1);
+          pc.toBlob(function(b){ if (b) storeProxy(idx, b, eg[0], eg[1]); }, 'image/jpeg', .78);
+          c.toBlob(function(b){ if (b) storeHi(idx, b); }, 'image/jpeg', .85);
+        }
+        if (!v.ended) v.requestVideoFrameCallback(cb);
+        else { finished = true; clearTimeout(timer); v.remove(); resolve(); }
+      };
+      v.requestVideoFrameCallback(cb);
+    });
+  });
+}
+
+/* ---------- start ---------- */
+function startScene(){
+  body.classList.add('video-bg');
+  sceneActive = true;
+  var caps = ('VideoDecoder' in window) && ('OffscreenCanvas' in window) &&
+             ('ReadableStream' in window) && ('MP4Box' in window);
+  var chain = caps ? runPipeline() : Promise.reject(new Error('caps missing'));
+  chain.catch(function(e){
+    if (window.console) console.warn('scene pipeline failed, trying capture fallback:', e && e.message);
+    return runFallbackCapture();
+  }).catch(function(e){
+    if (window.console) console.warn('scene unavailable, using stills:', e && e.message);
+    body.classList.remove('video-bg');
+    enterStills();
+  });
+}
+
+if (N.reduced) enterStills();
+else startScene();
+
+/* opening animation after fonts (with a race so it never hangs) */
+var fontReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
+Promise.race([fontReady, new Promise(function(r){ setTimeout(r, 2500); })]).then(function(){
+  N.fitWordmark();
+  N.runOpening();
+});
+N.startLoop(function(dt){ renderScene(dt); }, N.drift);
+})();
+</script>
+
+</body>
+</html>
