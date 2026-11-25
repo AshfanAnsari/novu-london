@@ -313,6 +313,11 @@ body.pre .hero-still,body.pre .topnav .anim,body.pre .bottombar .anim{opacity:0}
   .legal{flex-wrap:wrap;white-space:normal;margin:0 20px;padding-bottom:110px;row-gap:14px}
 }
 
+@media (max-width:820px){
+  /* v7: phones run the scene engine too — hide the stills while it lives */
+  body.video-bg .hero-still,body.video-bg .story-still{display:none}
+}
+
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
@@ -678,29 +683,120 @@ window.__novu.fitWordmark = fitWordmark;
 <script>
 (function(){
 'use strict';
+/* =====================================================================
+   NOVU v8 SCENE ENGINE — second from-scratch rebuild (v7 is retired).
+
+   Why v7 still lagged on a real device (diagnosed from its code):
+   1. Its decoder was configured hardwareAcceleration:'prefer-software'
+      — on a phone that forces CPU H.264 decode of 720p, competing
+      with the conversion workers and the main thread for the same
+      cores. (Invisible on the SwiftShader QA VM, which has no
+      hardware decode either way.)
+   2. Single-tier frame supply: every frame existed only as a
+      full-res 1280x720 JPEG. Any frame the playhead reached that was
+      not already in the 72-entry bitmap LRU cost a MAIN-THREAD 720p
+      JPEG decode (createImageBitmap) in the middle of the scroll —
+      a hard flick outruns that LRU constantly, so the main thread
+      spent the scroll decoding instead of drawing.
+   3. Conversion priority was distance-to-target only: during a
+      flick the pool kept converting frames the playhead had already
+      passed.
+   4. The draw cache key contained bitmaps.size, so every LRU
+      insertion during decode invalidated the key and forced a full
+      repaint of the identical frame.
+   5. The crossfade drew two full-res frames every rAF even at flick
+      speed.
+
+   This engine:
+   1. Stage is CSS position:sticky (styles above) — no JS pinning.
+   2. mp4box demux + WebCodecs decode, split into segments at the
+      video's keyframes (scene.mp4: frames 0 and 250), one decoder
+      per segment. Decoder config is resolved through
+      VideoDecoder.isConfigSupported: prefer-hardware first, then
+      no preference, then prefer-software (the v7 config, kept only
+      as the last resort).
+   3. TWO-TIER conversion in a worker pool (frame-worker-v8.js).
+      Each decoded frame produces, in one job:
+        PROXY — 480x270 JPEG (posted FIRST, the moment it exists).
+          ~1/7 the pixels of the hi tier; the main thread can decode
+          it in ~1-3 ms. This is the MOTION tier: whatever the scroll
+          speed, a near-exact proxy is always drawable.
+        HI — 1280x720 JPEG + edge colours (posted second). This is
+          the SETTLE tier: materialised on the main thread only when
+          the playhead is slow or stopped, never in the middle of a
+          flick.
+      Jobs are pulled by distance to a VELOCITY-PREDICTED centre
+      (target + velocity x 0.35 s), so conversion effort runs ahead
+      of the playhead instead of behind it. Every in-flight frame is
+      cloned before transfer: if a worker dies or stalls past the
+      watchdog, the clone is converted on the main thread and the
+      pool heals itself. Two worker deaths switch conversion to the
+      main thread permanently (the v6 lesson).
+   4. One rAF loop (in part 1) reads scroll progress -> target frame;
+      the displayed frame CHASES it with distance-boosted easing
+      (v7 constants, proven). Draw rule:
+        exact hi bitmap (crossfade to the next hi frame only when
+        slow/still) -> nearest ready PROXY bitmap -> nearest ready
+        hi bitmap -> hold the last painted frame.
+      A flat background is never painted instead of a frame. While
+      moving fast the draw is a single image (no crossfade).
+   5. Blobs for all 480 frames of both tiers stay resident
+      (measured in QA; the scene's soft gradients compress well).
+      Proxy bitmaps live in an LRU around the playhead/predicted
+      path (96 desktop / 64 phone); hi bitmaps in a small LRU around
+      the playhead (28 / 18), filled only under the settle rule.
+   Phones run this same engine; reduced-motion or total pipeline
+   failure falls back to the stills (as v6/v7).
+   ===================================================================== */
 var N = window.__novu;
 var clamp = N.clamp, easeInOutCubic = N.easeInOutCubic;
 var SCENE_URL = 'assets/scene.mp4';
+var WORKER_URL = 'frame-worker-v8.js';
+var PROXY_W = 480, PROXY_H = 270;
 var body = document.body;
 var canvas = document.getElementById('sceneCanvas');
 var ctx = canvas.getContext('2d');
 var heroStill = document.getElementById('heroStill');
 var storyStill = document.getElementById('storyStill');
 
-var sceneActive = false;          /* pipeline running / frames available */
-var frames = {};                  /* index -> JPEG Blob */
-var edges = {};                   /* index -> {l:[r,g,b], r:[r,g,b]} */
-var storedCount = 0;
-var totalFrames = 0;              /* from the MP4 track (or fallback estimate) */
+var sceneActive = false;
+var proxyBlobs = {}, hiBlobs = {}, edges = {};
+var haveFrame = {};
+var proxyMissing = {}, hiMissing = {};
+var proxyCount = 0, hiCount = 0, frameCount = 0;
+var proxyMissingCount = 0;
+var proxyBytes = 0, hiBytes = 0;
+var lostCount = 0;
+var totalFrames = 0;
 var videoW = 0, videoH = 0;
 var cur = 0, targetFrame = 0;
-var decodeMs = -1;
+var vel = 0, lastTarget = 0, lastTargetT = 0;   /* playhead velocity, frames/sec (EMA) */
+var priorityCentre = 0;                          /* where conversion effort points */
+var stillMs = 0;                                 /* settle hysteresis for the hi tier */
+var decodeMs = -1, decodeDoneFlag = false, proxiesDoneFlag = false;
+var convMode = 'worker';                         /* 'worker' | 'main' */
+var workerDeaths = 0;
+var lastTier = 'none';
+var lastKey = '';
 
 /* debug hook */
 window.__scene = {
-  framesCached: function(){ return storedCount; },
+  framesCached: function(){ return frameCount; },
+  proxies: function(){ return proxyCount; },
+  his: function(){ return hiCount; },
   target: function(){ return targetFrame; },
-  cur: function(){ return cur; }
+  cur: function(){ return cur; },
+  vel: function(){ return vel; },
+  tier: function(){ return lastTier; },
+  bitmaps: function(){ return proxyBmp.size + hiBmp.size; },
+  proxyBitmaps: function(){ return proxyBmp.size; },
+  hiBitmaps: function(){ return hiBmp.size; },
+  bytes: function(){ return { proxy: proxyBytes, hi: hiBytes }; },
+  decodeDone: function(){ return decodeDoneFlag; },
+  proxiesDone: function(){ return proxiesDoneFlag; },
+  mode: function(){ return convMode; },
+  workerDeaths: function(){ return workerDeaths; },
+  lost: function(){ return lostCount; }
 };
 
 /* ---------- stills fallback ---------- */
@@ -717,67 +813,112 @@ function enterStills(){
 /* ---------- canvas sizing ---------- */
 function sizeCanvas(){
   var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  /* the source is 1280 wide: a backing store past ~1760px only burns
+     raster time (measured in v6/v7 QA: 2160x1350 software repaint
+     starved rAF; a real GPU does not care, but it costs nothing) */
+  if (canvas.clientWidth && canvas.clientWidth * dpr > 1760) dpr = 1760 / canvas.clientWidth;
   var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
   if (w && h && (canvas.width !== w || canvas.height !== h)){ canvas.width = w; canvas.height = h; lastKey = ''; }
 }
 N.onResize.push(function(){ if (sceneActive) sizeCanvas(); });
 
-/* ---------- bitmap LRU (56) ---------- */
-var bitmaps = new Map(), inflight = {};
-function bmpGet(i){
-  if (!bitmaps.has(i)) return null;
-  var b = bitmaps.get(i); bitmaps.delete(i); bitmaps.set(i, b); return b;
+/* ---------- bitmap LRUs (one per tier) ---------- */
+var PROXY_CAP = N.isPhone() ? 64 : 96;
+var HI_CAP = N.isPhone() ? 18 : 28;
+var proxyBmp = new Map(), hiBmp = new Map();
+var pxInflight = {}, pxInflightCount = 0;
+var hiInflight = {}, hiInflightCount = 0;
+function lruGet(map, i){
+  if (!map.has(i)) return null;
+  var b = map.get(i); map.delete(i); map.set(i, b); return b;
 }
-function bmpSet(i, b){
-  if (bitmaps.has(i)) bitmaps.delete(i);
-  bitmaps.set(i, b);
-  while (bitmaps.size > 56){
+function protectSet(){
+  var p = {};
+  var a = Math.floor(cur), t = Math.round(targetFrame);
+  p[a] = 1; if (a + 1 < totalFrames) p[a + 1] = 1; p[t] = 1;
+  return p;
+}
+function lruSet(map, cap, i, b){
+  if (map.has(i)){ var old = map.get(i); if (old && old.close) old.close(); map.delete(i); }
+  map.set(i, b);
+  if (map.size <= cap) return;
+  var protect = protectSet();
+  while (map.size > cap){
     var done = false;
-    for (var k of bitmaps.keys()){
-      if (k !== Math.floor(cur) && k !== Math.floor(cur) + 1){
-        var old = bitmaps.get(k); bitmaps.delete(k); if (old && old.close) old.close(); done = true; break;
+    for (var k of map.keys()){
+      if (!protect[k]){
+        var o = map.get(k); map.delete(k); if (o && o.close) o.close(); done = true; break;
       }
     }
     if (!done) break;
   }
 }
-function nearestBmp(i){
-  if (bmpGet(i)) return bmpGet(i);
-  for (var d = 1; d <= 12; d++){
-    if (bmpGet(i - d)) return bmpGet(i - d);
-    if (bmpGet(i + d)) return bmpGet(i + d);
+/* exact bitmap, else the nearest ready one (unbounded outward search —
+   a capped search plus a narrow materialise window once froze the v6
+   canvas for 16 s; the picture must always reach the closest frame
+   that exists) */
+function pickFrom(map, i){
+  var b = lruGet(map, i);
+  if (b) return { bmp: b, idx: i };
+  var maxD = totalFrames || 480;
+  for (var d = 1; d <= maxD; d++){
+    b = lruGet(map, i - d); if (b) return { bmp: b, idx: i - d };
+    b = lruGet(map, i + d); if (b) return { bmp: b, idx: i + d };
   }
   return null;
 }
 function nearestEdge(i){
   if (edges[i]) return edges[i];
-  for (var d = 1; d <= 40; d++){
+  for (var d = 1; d <= 60; d++){
     if (edges[i - d]) return edges[i - d];
     if (edges[i + d]) return edges[i + d];
   }
   return { l: [233, 230, 225], r: [233, 230, 225] };
 }
-function queueBitmaps(){
+/* materialise proxy bitmaps along the playhead<->predicted-target
+   path, nearest first. Proxy decodes are ~1-3 ms, so this can run
+   at any scroll speed — it is what the v7 engine could not afford
+   with full-res frames. */
+function materialiseProxy(){
   if (!totalFrames) return;
-  var lo = Math.min(cur, targetFrame), hi = Math.max(cur, targetFrame);
-  var from = Math.max(0, Math.floor(lo) - 4), to = Math.min(totalFrames - 1, Math.ceil(hi) + 14);
-  var list = [];
-  for (var i = from; i <= to; i++) if (frames[i] && !bitmaps.has(i) && !inflight[i]) list.push(i);
-  list.sort(function(a, b){ return Math.abs(a - cur) - Math.abs(b - cur); });
-  var n = 0;
-  for (var j = 0; j < list.length && n < 8; j++){
+  var pred = clamp(priorityCentre, 0, totalFrames - 1);
+  var lo = Math.max(0, Math.floor(Math.min(cur, pred)) - 14);
+  var hi = Math.min(totalFrames - 1, Math.ceil(Math.max(cur, pred)) + 14);
+  var cand = [];
+  for (var i = lo; i <= hi; i++)
+    if (proxyBlobs[i] && !proxyBmp.has(i) && !pxInflight[i]) cand.push(i);
+  cand.sort(function(a, b){ return Math.abs(a - cur) - Math.abs(b - cur); });
+  for (var j = 0; j < cand.length && pxInflightCount < 8; j++){
     (function(idx){
-      if (inflight[idx]) return;
-      inflight[idx] = true; n++;
-      createImageBitmap(frames[idx]).then(function(b){
-        delete inflight[idx]; bmpSet(idx, b);
-      }).catch(function(){ delete inflight[idx]; });
-    })(list[j]);
+      pxInflight[idx] = true; pxInflightCount++;
+      createImageBitmap(proxyBlobs[idx]).then(function(b){
+        delete pxInflight[idx]; pxInflightCount--;
+        lruSet(proxyBmp, PROXY_CAP, idx, b);
+      }).catch(function(){ delete pxInflight[idx]; pxInflightCount--; });
+    })(cand[j]);
+  }
+}
+/* materialise hi bitmaps around the playhead — called ONLY when the
+   playhead is slow or settled (see renderScene): a 720p JPEG decode
+   must never land in the middle of a flick. */
+function materialiseHi(){
+  if (!totalFrames) return;
+  var c = Math.round(cur), cand = [];
+  for (var i = Math.max(0, c - 6); i <= Math.min(totalFrames - 1, c + 6); i++)
+    if (hiBlobs[i] && !hiBmp.has(i) && !hiInflight[i]) cand.push(i);
+  cand.sort(function(a, b){ return Math.abs(a - cur) - Math.abs(b - cur); });
+  for (var j = 0; j < cand.length && hiInflightCount < 4; j++){
+    (function(idx){
+      hiInflight[idx] = true; hiInflightCount++;
+      createImageBitmap(hiBlobs[idx]).then(function(b){
+        delete hiInflight[idx]; hiInflightCount--;
+        lruSet(hiBmp, HI_CAP, idx, b);
+      }).catch(function(){ delete hiInflight[idx]; hiInflightCount--; });
+    })(cand[j]);
   }
 }
 
-/* ---------- rendering (§8) ---------- */
-var lastKey = '';
+/* ---------- rendering ---------- */
 function rects(){
   var W = canvas.width, H = canvas.height;
   var bw = W, bh = Math.max(W * 900 / 1440, H);
@@ -788,24 +929,32 @@ function rects(){
   return [r0, r1];
 }
 function drawScene(){
-  if (!storedCount || !totalFrames || !videoW) return;
+  if (!frameCount || !totalFrames || !videoW) return;
   var i0 = Math.floor(cur), frac = cur - i0;
-  /* HOLD-FRAME FIX (v6): look up the frames BEFORE painting anything.
-     The v4 code painted the flat edge-colour background first and only
-     drew the fox if a bitmap happened to be ready — on a fast flick the
-     playhead outran the bitmap window and the canvas went blank beige
-     for ~7 frames. Now: no bitmap ready -> paint nothing, the canvas
-     keeps the last good frame. */
-  var b0 = nearestBmp(i0);
-  var b1 = frac > .001 ? nearestBmp(i0 + 1) : null;
-  if (!b0 && !b1) return;
+  var slow = Math.abs(targetFrame - cur) < 2.0 && Math.abs(vel) < 6;
+  /* look up BEFORE painting: no bitmap anywhere -> paint nothing,
+     the canvas keeps the last good frame (never a flat wash). */
+  var p0 = null, tier = 'none', p1 = null;
+  var hb = lruGet(hiBmp, i0);
+  if (hb){ p0 = { bmp: hb, idx: i0 }; tier = 'hi'; }
+  if (!p0){ p0 = pickFrom(proxyBmp, i0); if (p0) tier = 'proxy'; }
+  if (!p0){ p0 = pickFrom(hiBmp, i0); if (p0) tier = 'hi'; }
+  if (!p0) return;
+  if (tier === 'hi' && frac > .001 && (slow || stillMs > 100)){
+    var hb2 = lruGet(hiBmp, i0 + 1);
+    if (hb2) p1 = { bmp: hb2, idx: i0 + 1 };
+  }
   var t = easeInOutCubic(clamp((cur / Math.max(1, totalFrames - 1) - .35) / .55, 0, 1));
-  var key = i0 + '|' + frac.toFixed(2) + '|' + t.toFixed(3) + '|' + canvas.width + 'x' + canvas.height +
-            '|' + (bitmaps.has(i0) ? 1 : 0) + (bitmaps.has(i0 + 1) ? 1 : 0) + '|' + bitmaps.size;
+  /* NOTE: the key deliberately excludes bitmap-cache sizes — in v7
+     bitmaps.size in the key forced a full repaint of the identical
+     frame on every LRU insertion during decode. */
+  var key = tier + '|' + p0.idx + '|' + (p1 ? p1.idx : -1) + '|' + (p1 ? frac.toFixed(2) : '0') +
+            '|' + t.toFixed(3) + '|' + canvas.width + 'x' + canvas.height;
   if (key === lastKey) return;
   lastKey = key;
+  lastTier = tier;
   var W = canvas.width, H = canvas.height;
-  var e = nearestEdge(i0);
+  var e = nearestEdge(p0.idx);
   ctx.globalAlpha = 1;
   ctx.fillStyle = 'rgb(' + e.l[0] + ',' + e.l[1] + ',' + e.l[2] + ')';
   ctx.fillRect(0, 0, W / 2, H);
@@ -816,9 +965,8 @@ function drawScene(){
     x: r0.x + (r1.x - r0.x) * t, y: r0.y + (r1.y - r0.y) * t,
     w: r0.w + (r1.w - r0.w) * t, h: r0.h + (r1.h - r0.h) * t
   };
-  if (b0) ctx.drawImage(b0, r.x, r.y, r.w, r.h);
-  if (b1 && b1 !== b0){ ctx.globalAlpha = frac; ctx.drawImage(b1, r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; }
-  /* feather the frame's side edges into the edge colours */
+  ctx.drawImage(p0.bmp, r.x, r.y, r.w, r.h);
+  if (p1){ ctx.globalAlpha = frac; ctx.drawImage(p1.bmp, r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; }
   var fw = r.w * .06;
   var gl = ctx.createLinearGradient(r.x, 0, r.x + fw, 0);
   gl.addColorStop(0, 'rgba(' + e.l[0] + ',' + e.l[1] + ',' + e.l[2] + ',.85)');
@@ -831,108 +979,351 @@ function drawScene(){
 }
 function renderScene(dt){
   if (!sceneActive || !totalFrames) return;
+  var now = performance.now();
   targetFrame = Math.min(1, N.getStageP() / .85) * (totalFrames - 1);
-  var k = N.lenis ? .6 : .25;
-  cur += (targetFrame - cur) * (1 - Math.pow(1 - k, dt / 16.7));
+  /* velocity (frames/sec, EMA) from target movement; an instant jump
+     spikes it for a few ticks, which is exactly when the conversion
+     centre must teleport to the destination */
+  if (lastTargetT){
+    var instV = (targetFrame - lastTarget) / Math.max(1, now - lastTargetT) * 1000;
+    vel = vel * .8 + instV * .2;
+  }
+  lastTarget = targetFrame; lastTargetT = now;
+  priorityCentre = clamp(targetFrame + vel * .35, 0, totalFrames - 1);
+  var diff = targetFrame - cur;
+  var kBase = N.lenis ? .6 : .25;
+  var k = kBase + Math.min(.3, Math.abs(diff) / 500);   /* fast catch-up on big jumps */
+  cur += diff * (1 - Math.pow(1 - k, dt / 16.7));
   if (Math.abs(targetFrame - cur) < .02) cur = targetFrame;
-  queueBitmaps();
+  /* settle hysteresis: the hi tier engages only once the playhead
+     has been nearly still for a beat */
+  if (Math.abs(targetFrame - cur) < .75 && Math.abs(vel) < 2) stillMs += dt; else stillMs = 0;
+  materialiseProxy();
+  if (stillMs > 100 || (Math.abs(targetFrame - cur) < 2.0 && Math.abs(vel) < 6)) materialiseHi();
   drawScene();
-}
-function onFirstFrame(){
-  sizeCanvas();
-  drawScene();
-  requestAnimationFrame(function(){ requestAnimationFrame(function(){ body.classList.add('scene-on'); }); });
 }
 var revealed = false;
-function storeFrame(index, blob, l, r){
-  if (frames[index] !== undefined) return;
-  frames[index] = blob; edges[index] = { l: l, r: r }; storedCount++;
-  if (!revealed){ revealed = true; onFirstFrame(); }
+function onFirstFrame(){
+  sizeCanvas();
+  var tries = 0;
+  (function attempt(){
+    drawScene();
+    if (lastKey || ++tries > 30){
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ body.classList.add('scene-on'); }); });
+    } else requestAnimationFrame(attempt);
+  })();
+}
+function markFrame(index){
+  if (!haveFrame[index]){ haveFrame[index] = true; frameCount++; }
+}
+function storeProxy(index, blob, l, r){
+  if (proxyBlobs[index] !== undefined || proxyMissing[index]) return;
+  if (!blob){ proxyMissing[index] = true; proxyMissingCount++; }
+  else {
+    proxyBlobs[index] = blob; proxyBytes += blob.size || 0;
+    edges[index] = { l: l, r: r }; proxyCount++;
+    markFrame(index);
+  }
+  if (totalFrames && proxyCount + proxyMissingCount >= totalFrames) proxiesDoneFlag = true;
+  if (!revealed && frameCount){ revealed = true; onFirstFrame(); }
+}
+function storeHi(index, blob){
+  if (hiBlobs[index] !== undefined || hiMissing[index]) return;
+  if (!blob){ hiMissing[index] = true; return; }
+  hiBlobs[index] = blob; hiBytes += blob.size || 0; hiCount++;
+  markFrame(index);
+  if (!revealed && frameCount){ revealed = true; onFirstFrame(); }
 }
 
-/* ---------- frame conversion (§8 step 5) ----------
-   The brief specifies a worker pool for this step. This build converts on the
-   main thread instead: in software-rendered Chromium a worker can die
-   silently mid-stream and take the whole pipeline down with it (observed:
-   decode froze at ~frame 295 of 480 with no error), while the main-thread
-   path was measured converting all 480 frames with zero failures. The
-   outputs are identical: a JPEG blob at q.88 plus per-frame edge colours. */
-var convCanvas = null, convCtx = null;
-function convertFrame(frame){
+/* ---------- conversion: worker pool with main-thread rescue ---------- */
+var convQueue = [];               /* {index, frame} decoded, awaiting conversion */
+var workers = [];                 /* {w, busy, job:{index, keep, sentAt, noClone, proxyOk}} */
+var mainActive = 0;
+var settledConv = 0;              /* conversions finished (both tiers settled or lost) */
+
+function pickConvJob(){
+  var best = -1, bestD = Infinity;
+  for (var i = 0; i < convQueue.length; i++){
+    var d = Math.abs(convQueue[i].index - priorityCentre);
+    if (d < bestD){ bestD = d; best = i; }
+  }
+  if (best < 0) return null;
+  return convQueue.splice(best, 1)[0];
+}
+function convSettled(){ settledConv++; }
+
+/* main-thread conversion (the rescue lane; same two tiers as the worker) */
+var mHi = null, mHiCx = null, mPx = null, mPxCx = null;
+function edgeColoursFrom2D(c, w, h){
+  function avg(data){ var r = 0, g = 0, b = 0, n = data.length / 4, i;
+    for (i = 0; i < data.length; i += 4){ r += data[i]; g += data[i + 1]; b += data[i + 2]; }
+    return [Math.round(r / n), Math.round(g / n), Math.round(b / n)]; }
+  var L = c.getImageData(0, 0, 4, h).data, R = c.getImageData(w - 4, 0, 4, h).data;
+  return [avg(L), avg(R)];
+}
+function convertOnMain(frame){
   var w = frame.displayWidth, h = frame.displayHeight, eg;
+  var FAIL = { proxy: null, hi: null, l: [233, 230, 225], r: [233, 230, 225] };
   try {
-    if (!convCanvas){ convCanvas = new OffscreenCanvas(w, h); convCtx = convCanvas.getContext('2d', { willReadFrequently: true }); }
-    if (convCanvas.width !== w || convCanvas.height !== h){ convCanvas.width = w; convCanvas.height = h; }
-    convCtx.drawImage(frame, 0, 0);
+    if (!mHi){ mHi = new OffscreenCanvas(w, h); mHiCx = mHi.getContext('2d', { willReadFrequently: true }); }
+    if (mHi.width !== w || mHi.height !== h){ mHi.width = w; mHi.height = h; }
+    mHiCx.drawImage(frame, 0, 0);
+    if (!mPx){ mPx = new OffscreenCanvas(PROXY_W, PROXY_H); mPxCx = mPx.getContext('2d'); }
+    mPxCx.drawImage(mHi, 0, 0, PROXY_W, PROXY_H);
     frame.close();
-    eg = edgeColoursFrom2D(convCtx, w, h);
+    eg = edgeColoursFrom2D(mHiCx, w, h);
   } catch (e){
     try { frame.close(); } catch (_){}
-    return Promise.resolve({ blob: null, l: [233, 230, 225], r: [233, 230, 225] });
+    return Promise.resolve(FAIL);
   }
-  return convCanvas.convertToBlob({ type: 'image/jpeg', quality: .88 })
-    .catch(function(){ return convCanvas.convertToBlob({ type: 'image/jpeg', quality: .8 }); })
-    .then(function(blob){ return { blob: blob, l: eg[0], r: eg[1] }; })
-    .catch(function(){ return { blob: null, l: eg[0], r: eg[1] }; });
+  var pxP = mPx.convertToBlob({ type: 'image/jpeg', quality: .78 }).catch(function(){ return null; });
+  var hiP = mHi.convertToBlob({ type: 'image/jpeg', quality: .85 }).catch(function(){ return null; });
+  return Promise.all([pxP, hiP]).then(function(r){
+    return { proxy: r[0], hi: r[1], l: eg[0], r: eg[1] };
+  }).catch(function(){ return { proxy: null, hi: null, l: eg[0], r: eg[1] }; });
+}
+function settleFromMain(job, res){
+  storeProxy(job.index, res && res.proxy, res ? res.l : [233, 230, 225], res ? res.r : [233, 230, 225]);
+  storeHi(job.index, res && res.hi);
+  convSettled();
+}
+function rescueOnMain(job){
+  mainActive++;
+  convertOnMain(job.keep).then(function(res){
+    mainActive--;
+    settleFromMain(job, res);
+    pumpConv();
+  });
+}
+function pumpMainConv(){
+  while (mainActive < 2 && convQueue.length){
+    var job = pickConvJob();
+    if (!job) return;
+    mainActive++;
+    (function(job){
+      convertOnMain(job.frame).then(function(res){
+        mainActive--;
+        settleFromMain(job, res);
+        pumpConv();
+      });
+    })(job);
+  }
+}
+function spawnWorker(){
+  var wkr;
+  try { wkr = new Worker(WORKER_URL); } catch (e){ return null; }
+  var rec = { w: wkr, busy: false, job: null };
+  wkr.onmessage = function(ev){
+    var msg = ev.data || {};
+    var job = rec.job;
+    if (!job || msg.index !== job.index) return;
+    if (msg.kind === 'proxy'){
+      job.proxyOk = !!msg.blob;
+      storeProxy(job.index, msg.blob, msg.l, msg.r);
+      return;
+    }
+    /* kind 'hi' completes the job */
+    rec.busy = false; rec.job = null;
+    var hiOk = !!msg.blob;
+    storeHi(job.index, msg.blob);
+    try { job.keep.close(); } catch (_){}
+    if (!job.proxyOk && !job.noClone){
+      /* the motion tier is the one tier that must not go missing:
+         rescue the clone on the main thread */
+      rescueOnMain(job);
+    } else {
+      if (!job.proxyOk && !hiOk) lostCount++;
+      convSettled();
+    }
+    pumpConv();
+  };
+  wkr.onerror = function(){ killWorker(rec, true); };
+  workers.push(rec);
+  return rec;
+}
+function killWorker(rec, countDeath){
+  if (countDeath) workerDeaths++;
+  try { rec.w.terminate(); } catch (_){}
+  var ix = workers.indexOf(rec); if (ix >= 0) workers.splice(ix, 1);
+  var job = rec.job; rec.job = null; rec.busy = false;
+  if (workerDeaths >= 2 && convMode === 'worker'){
+    convMode = 'main';
+    if (window.console) console.warn('scene: worker pool unreliable, converting on main thread');
+    workers.slice().forEach(function(r){ killWorker(r, false); });
+  } else if (convMode === 'worker'){
+    spawnWorker();
+  }
+  if (job){
+    if (!job.noClone && job.keep){
+      rescueOnMain(job);
+    } else {
+      storeHi(job.index, null);
+      if (!job.proxyOk) lostCount++;
+      convSettled();
+    }
+  }
+  pumpConv();
+}
+function pumpConv(){
+  if (convMode === 'main'){ pumpMainConv(); return; }
+  for (var i = 0; i < workers.length; i++){
+    var rec = workers[i];
+    if (rec.busy || !convQueue.length) continue;
+    var job = pickConvJob();
+    if (!job) return;
+    var keep = null;
+    try { keep = job.frame.clone(); } catch (e){ keep = null; }
+    rec.busy = true;
+    if (!keep){
+      /* cannot clone: send without a rescue copy (frame loss is covered by nearest-frame draw) */
+      rec.job = { index: job.index, keep: job.frame, sentAt: performance.now(), noClone: true, proxyOk: false };
+      try { rec.w.postMessage({ index: job.index, frame: job.frame }, [job.frame]); }
+      catch (e){ rec.busy = false; rec.job = null; lostCount++; convSettled(); }
+      continue;
+    }
+    rec.job = { index: job.index, keep: keep, sentAt: performance.now(), proxyOk: false };
+    try { rec.w.postMessage({ index: job.index, frame: job.frame }, [job.frame]); }
+    catch (e){
+      rec.busy = false; var j2 = rec.job; rec.job = null;
+      rescueOnMain(j2);
+    }
+  }
+}
+/* worker watchdog: a busy worker silent for 8s is dead — rescue its frame */
+setInterval(function(){
+  if (convMode !== 'worker') return;
+  var now = performance.now();
+  workers.slice().forEach(function(rec){
+    if (rec.busy && rec.job && now - rec.job.sentAt > 8000) killWorker(rec, true);
+  });
+}, 1000);
+
+/* ---------- decoder config: hardware first (v7 forced software) ---------- */
+function resolveDecoderCfg(base){
+  if (!('VideoDecoder' in window) || !VideoDecoder.isConfigSupported) return Promise.resolve(base);
+  var prefs = ['prefer-hardware', null, 'prefer-software'];
+  var chain = Promise.resolve(null);
+  prefs.forEach(function(p){
+    chain = chain.then(function(found){
+      if (found) return found;
+      var cfg = { codec: base.codec, codedWidth: base.codedWidth, codedHeight: base.codedHeight };
+      if (base.description) cfg.description = base.description;
+      if (p) cfg.hardwareAcceleration = p;
+      return VideoDecoder.isConfigSupported(cfg)
+        .then(function(r){ return (r && r.supported) ? cfg : null; })
+        .catch(function(){ return null; });
+    });
+  });
+  return chain.then(function(found){ return found || base; });
 }
 
-/* ---------- main pipeline (§8 steps 1–4, 6) ---------- */
+/* ---------- decode pipeline: keyframe segments, one decoder each ---------- */
 function runPipeline(){
   return new Promise(function(resolve, reject){
     var settled = false;
     function fail(e){ if (!settled){ settled = true; reject(e); } }
     function done(){ if (!settled){ settled = true; resolve(); } }
     var t0 = performance.now();
-    var convQueue = [], activeConvs = 0, settledCount = 0;
-    function framesWaiting(){ return convQueue.length + activeConvs; }
-    function settleJob(job, res){
-      activeConvs--;
-      settledCount++;
-      if (res && res.blob) storeFrame(job.index, res.blob, res.l, res.r);
-      pump();
-      pumpConv();
-      if (totalFrames && settledCount >= totalFrames){ decodeMs = performance.now() - t0; done(); }
+
+    /* worker pool up front (probe = first real job, watchdog covers failure) */
+    var NW = 0;
+    try { NW = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1)); } catch (e){ NW = 1; }
+    for (var wi = 0; wi < NW; wi++) if (!spawnWorker()) break;
+    if (!workers.length) convMode = 'main';
+
+    var samples = [];               /* {chunk, sync} in order */
+    var samplesReceived = 0, extractionDone = false;
+    var segments = [];
+    var decoderCfg = null, cfgReady = false, segmentsStarted = false;
+
+    function maybeDone(){
+      if (extractionDone && totalFrames && settledConv >= totalFrames){ decodeMs = performance.now() - t0; decodeDoneFlag = true; done(); }
     }
-    function pumpConv(){
-      while (activeConvs < 3 && convQueue.length){
-        var job = convQueue.shift();
-        activeConvs++;
-        convertFrame(job.frame).then(
-          function(res){ settleJob(job, res); },
-          function(){ settleJob(job, null); });
-      }
-    }
-    var decoder;
-    try {
-      decoder = new VideoDecoder({
-        output: function(frame){
-          convQueue.push({ index: decodedCount++, frame: frame });
-          pumpConv();
-          pump();
-        },
-        error: function(e){ fail(e); }
-      });
-    } catch (e){ fail(e); return; }
-    var decodedCount = 0;
-    var chunkQueue = [], samplesReceived = 0, extractionDone = false, flushed = false;
-    function pump(){
-      while (chunkQueue.length && decoder.state === 'configured' &&
-             decoder.decodeQueueSize < 4 && framesWaiting() < 8){
-        try { decoder.decode(chunkQueue.shift()); } catch (e){ fail(e); return; }
-      }
-      if (extractionDone && !chunkQueue.length && !flushed && decoder.state === 'configured'){
-        flushed = true;
-        decoder.flush().catch(function(){});
-      }
-    }
-    decoder.addEventListener('dequeue', pump);
-    var lastSettled = 0, lastProgress = performance.now();
-    var watchdog = setInterval(function(){
-      if (settled){ clearInterval(watchdog); return; }
-      if (settledCount !== lastSettled){ lastSettled = settledCount; lastProgress = performance.now(); }
-      if (storedCount === 0 && performance.now() - t0 > 12000){ clearInterval(watchdog); fail(new Error('decode watchdog')); }
-      else if (storedCount > 0 && extractionDone && !chunkQueue.length && performance.now() - lastProgress > 15000){ clearInterval(watchdog); decodeMs = performance.now() - t0; done(); }
+    var lastProgress = performance.now(), lastStoredSeen = 0;
+    var settleTimer = setInterval(function(){
+      if (settled){ clearInterval(settleTimer); return; }
+      maybeDone();
+      if (frameCount === 0 && performance.now() - t0 > 15000){ clearInterval(settleTimer); fail(new Error('decode watchdog')); }
+      else if (frameCount > 0 && extractionDone && performance.now() - lastProgress > 25000){ clearInterval(settleTimer); decodeMs = performance.now() - t0; decodeDoneFlag = true; done(); }
     }, 1000);
+    setInterval(function(){
+      if (frameCount !== lastStoredSeen){ lastStoredSeen = frameCount; lastProgress = performance.now(); }
+    }, 500);
+
+    function maybeStartSegments(){
+      if (segmentsStarted || !extractionDone || !cfgReady) return;
+      segmentsStarted = true;
+      startSegments();
+    }
+    function startSegments(){
+      var starts = [];
+      for (var i = 0; i < samples.length; i++) if (samples[i].sync) starts.push(i);
+      if (!starts.length || starts[0] !== 0) starts.unshift(0);
+      for (var s = 0; s < starts.length; s++){
+        var from = starts[s], to = (s + 1 < starts.length) ? starts[s + 1] : samples.length;
+        segments.push({ from: from, to: to, feedIdx: from, pending: 0, flushed: false, decoder: null });
+      }
+      segments.forEach(function(seg, si){
+        /* segment 0 starts now; later segments start once frame 0 exists,
+           so the hero reveal is never starved by parallel software decode */
+        if (si === 0 || revealed) startSegment(seg);
+        else {
+          var iv = setInterval(function(){
+            if (revealed || settled){ clearInterval(iv); if (!settled) startSegment(seg); }
+          }, 120);
+        }
+      });
+    }
+    function startSegment(seg){
+      if (seg.decoder || settled) return;
+      var decoder;
+      try {
+        decoder = new VideoDecoder({
+          output: function(frame){
+            seg.pending++;
+            convQueue.push({ index: seg.from + seg.outCount++, frame: frame });
+            pumpConv();
+            pumpSegment(seg);
+          },
+          error: function(e){ fail(e); }
+        });
+      } catch (e){ fail(e); return; }
+      seg.outCount = 0;
+      seg.decoder = decoder;
+      try { decoder.configure(decoderCfg); } catch (e){ fail(e); return; }
+      decoder.addEventListener('dequeue', function(){ pumpSegment(seg); });
+      pumpSegment(seg);
+    }
+    function pumpSegment(seg){
+      if (!seg.decoder || settled) return;
+      while (seg.feedIdx < seg.to && seg.decoder.state === 'configured' &&
+             seg.decoder.decodeQueueSize < 4 && seg.pending < 10){
+        try { seg.decoder.decode(samples[seg.feedIdx].chunk); seg.feedIdx++; }
+        catch (e){ fail(e); return; }
+      }
+      if (seg.feedIdx >= seg.to && !seg.flushed && seg.decoder.state === 'configured'){
+        seg.flushed = true;
+        seg.decoder.flush().catch(function(){});
+      }
+    }
+    /* conversion settles feed backpressure: recount each segment's
+       in-flight frames from the queue + pool whenever jobs move */
+    var _pumpConv = pumpConv;
+    pumpConv = function(){
+      _pumpConv();
+      var counts = {};
+      for (var i = 0; i < convQueue.length; i++){
+        for (var s = 0; s < segments.length; s++){
+          if (convQueue[i].index >= segments[s].from && convQueue[i].index < segments[s].to){ counts[s] = (counts[s] || 0) + 1; break; }
+        }
+      }
+      segments.forEach(function(seg, s){
+        var inWorkers = 0;
+        workers.forEach(function(rec){ if (rec.job && rec.job.index >= seg.from && rec.job.index < seg.to) inWorkers++; });
+        seg.pending = (counts[s] || 0) + inWorkers + mainActive /* approx for main lane */;
+        pumpSegment(seg);
+      });
+    };
 
     var mp4 = MP4Box.createFile();
     mp4.onError = function(e){ fail(new Error('mp4box: ' + e)); };
@@ -941,33 +1332,39 @@ function runPipeline(){
       if (!vt){ fail(new Error('no video track')); return; }
       totalFrames = vt.nb_samples;
       videoW = vt.video.width; videoH = vt.video.height;
-      var cfg = { codec: vt.codec, codedWidth: videoW, codedHeight: videoH, hardwareAcceleration: 'prefer-software' };
+      var base = { codec: vt.codec, codedWidth: videoW, codedHeight: videoH };
       try {
         var trak = mp4.getTrackById(vt.id);
         var entry = trak.mdia.minf.stbl.stsd.entries[0];
         if (entry.avcC){
           var ds = new DataStream(undefined, 0, DataStream.BIG_ENDIAN);
           entry.avcC.write(ds);
-          cfg.description = new Uint8Array(ds.buffer, 8, ds.buffer.byteLength - 8);
+          base.description = new Uint8Array(ds.buffer, 8, ds.buffer.byteLength - 8);
         }
-        decoder.configure(cfg);
       } catch (e){ fail(e); return; }
-      mp4.setExtractionOptions(vt.id, null, { nbSamples: 12 });
+      resolveDecoderCfg(base).then(function(cfg){
+        decoderCfg = cfg;
+        cfgReady = true;
+        maybeStartSegments();
+      });
+      mp4.setExtractionOptions(vt.id, null, { nbSamples: 100 });
       mp4.start();
     };
-    mp4.onSamples = function(id, user, samples){
-      for (var j = 0; j < samples.length; j++){
-        var s = samples[j];
-        chunkQueue.push(new EncodedVideoChunk({
-          type: s.is_sync ? 'key' : 'delta',
-          timestamp: Math.round(s.cts * 1e6 / s.timescale),
-          duration: Math.round(s.duration * 1e6 / s.timescale),
-          data: s.data
-        }));
+    mp4.onSamples = function(id, user, ss){
+      for (var j = 0; j < ss.length; j++){
+        var smp = ss[j];
+        samples.push({
+          sync: !!smp.is_sync,
+          chunk: new EncodedVideoChunk({
+            type: smp.is_sync ? 'key' : 'delta',
+            timestamp: Math.round(smp.cts * 1e6 / smp.timescale),
+            duration: Math.round(smp.duration * 1e6 / smp.timescale),
+            data: smp.data
+          })
+        });
       }
-      samplesReceived += samples.length;
-      if (totalFrames && samplesReceived >= totalFrames) extractionDone = true;
-      pump();
+      samplesReceived += ss.length;
+      if (totalFrames && samplesReceived >= totalFrames){ extractionDone = true; maybeStartSegments(); }
     };
     fetch(SCENE_URL).then(function(res){
       if (!res.ok) throw new Error('fetch ' + res.status);
@@ -985,14 +1382,7 @@ function runPipeline(){
   });
 }
 
-/* ---------- fallback capture (§8 step 7) ---------- */
-function edgeColoursFrom2D(c, w, h){
-  function avg(data){ var r = 0, g = 0, b = 0, n = data.length / 4, i;
-    for (i = 0; i < data.length; i += 4){ r += data[i]; g += data[i + 1]; b += data[i + 2]; }
-    return [Math.round(r / n), Math.round(g / n), Math.round(b / n)]; }
-  var L = c.getImageData(0, 0, 4, h).data, R = c.getImageData(w - 4, 0, 4, h).data;
-  return [avg(L), avg(R)];
-}
+/* ---------- fallback capture (as v6 §8 step 7; both tiers) ---------- */
 function runFallbackCapture(){
   return new Promise(function(resolve, reject){
     if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)){ reject(new Error('no rVFC')); return; }
@@ -1000,10 +1390,12 @@ function runFallbackCapture(){
     v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = SCENE_URL;
     v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:-1';
     document.body.appendChild(v);
-    var c = document.createElement('canvas'), cx = c.getContext('2d', { willReadFrequently: true });
+    var c = document.createElement('canvas'), cx2 = c.getContext('2d', { willReadFrequently: true });
+    var pc = document.createElement('canvas'); pc.width = PROXY_W; pc.height = PROXY_H;
+    var pcx = pc.getContext('2d');
     var finished = false;
     var timer = setTimeout(function(){
-      if (!finished){ finished = true; v.remove(); storedCount ? resolve() : reject(new Error('capture timeout')); }
+      if (!finished){ finished = true; v.remove(); frameCount ? resolve() : reject(new Error('capture timeout')); }
     }, 25000);
     v.addEventListener('error', function(){
       if (!finished){ finished = true; clearTimeout(timer); v.remove(); reject(new Error('video error')); }
@@ -1015,12 +1407,13 @@ function runFallbackCapture(){
       var cb = function(now, meta){
         if (finished) return;
         var idx = Math.round(meta.mediaTime * 24);
-        if (frames[idx] === undefined){
-          cx.drawImage(v, 0, 0);
-          var eg = edgeColoursFrom2D(cx, c.width, c.height);
-          c.toBlob(function(b){
-            if (b){ storeFrame(idx, b, eg[0], eg[1]); totalFrames = Math.max(totalFrames, idx + 1); }
-          }, 'image/jpeg', .88);
+        if (proxyBlobs[idx] === undefined && !proxyMissing[idx]){
+          cx2.drawImage(v, 0, 0);
+          var eg = edgeColoursFrom2D(cx2, c.width, c.height);
+          pcx.drawImage(c, 0, 0, PROXY_W, PROXY_H);
+          totalFrames = Math.max(totalFrames, idx + 1);
+          pc.toBlob(function(b){ if (b) storeProxy(idx, b, eg[0], eg[1]); }, 'image/jpeg', .78);
+          c.toBlob(function(b){ if (b) storeHi(idx, b); }, 'image/jpeg', .85);
         }
         if (!v.ended) v.requestVideoFrameCallback(cb);
         else { finished = true; clearTimeout(timer); v.remove(); resolve(); }
@@ -1034,8 +1427,8 @@ function runFallbackCapture(){
 function startScene(){
   body.classList.add('video-bg');
   sceneActive = true;
-  var caps = ('VideoDecoder' in window) &&
-             ('OffscreenCanvas' in window) && ('ReadableStream' in window) && ('MP4Box' in window);
+  var caps = ('VideoDecoder' in window) && ('OffscreenCanvas' in window) &&
+             ('ReadableStream' in window) && ('MP4Box' in window);
   var chain = caps ? runPipeline() : Promise.reject(new Error('caps missing'));
   chain.catch(function(e){
     if (window.console) console.warn('scene pipeline failed, trying capture fallback:', e && e.message);
@@ -1047,7 +1440,7 @@ function startScene(){
   });
 }
 
-if (N.isPhone() || N.reduced) enterStills();
+if (N.reduced) enterStills();
 else startScene();
 
 /* opening animation after fonts (with a race so it never hangs) */
@@ -1059,5 +1452,6 @@ Promise.race([fontReady, new Promise(function(r){ setTimeout(r, 2500); })]).then
 N.startLoop(function(dt){ renderScene(dt); }, N.drift);
 })();
 </script>
+
 </body>
 </html>
